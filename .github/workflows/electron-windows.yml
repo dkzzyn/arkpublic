@@ -1,0 +1,50 @@
+name: Electron Windows (.exe)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+jobs:
+  build-installer:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: w
+    steps:
+      # Clone em subpasta curta (GITHUB_WORKSPACE/w) para limitar tamanho dos caminhos no build.
+      - uses: actions/checkout@v4
+        with:
+          path: w
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: w/package-lock.json
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Instalar dependências Node (raiz + frontend)
+        run: |
+          npm install
+          npm --prefix ./frontend install
+
+      - name: Criar venv Windows e instalar backend
+        shell: cmd
+        run: |
+          cd backend
+          python -m venv .venv
+          .venv\Scripts\python.exe -m pip install --upgrade pip
+          .venv\Scripts\pip.exe install -r requirements.txt
+
+      - name: Gerar instalador NSIS (.exe)
+        run: npm run electron:dist:win
+
+      - name: Upload do instalador
+        uses: actions/upload-artifact@v4
+        with:
+          name: ControleExpedicao-Windows-Setup
+          path: w/electron-dist/*.exe

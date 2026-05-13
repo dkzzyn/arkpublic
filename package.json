@@ -1,0 +1,102 @@
+{
+  "name": "controle-expedicao",
+  "version": "1.2.0",
+  "private": true,
+  "main": "electron/main.js",
+  "scripts": {
+    "build": "npm run frontend:build",
+    "backend": "node scripts/start-backend-dev.js",
+    "frontend:start": "npm --prefix ./frontend run start",
+    "frontend:start:tauri": "npm --prefix ./frontend run start:tauri",
+    "frontend:build": "npm --prefix ./frontend run build",
+    "predev": "kill-port 8000 || exit 0",
+    "dev": "concurrently -k -n backend,frontend -c blue,magenta \"npm run backend\" \"npm run frontend:start\"",
+    "dev:soft": "concurrently -k -n backend,frontend -c blue,magenta \"npm run backend\" \"npm run frontend:start\"",
+    "electron:start": "npm run frontend:build && electron .",
+    "electron:test": "npm run electron:start",
+    "electron:dist": "npm run frontend:build && electron-builder",
+    "electron:dist:mac": "npm run frontend:build && electron-builder --mac",
+    "electron:dist:linux": "npm run frontend:build && electron-builder --linux",
+    "electron:dist:win": "node scripts/assert-backend-windows-venv.js && npm run frontend:build && electron-builder --win",
+    "electron:dist:win-desktop": "node scripts/electron-build-win-desktop.js",
+    "start:windows": "node scripts/electron-build-win-desktop.js",
+    "tauri": "tauri",
+    "tauri:dev": "tauri dev",
+    "tauri:build": "tauri build"
+  },
+  "dependencies": {
+    "electron-updater": "^6.8.3"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.2.7",
+    "concurrently": "^9.1.2",
+    "electron": "^37.3.1",
+    "electron-builder": "^26.0.12",
+    "kill-port": "^2.0.1"
+  },
+  "build": {
+    "appId": "com.controleexped.v12",
+    "productName": "ControleExped v1.2",
+    "copyright": "Copyright 2026",
+    "directories": {
+      "output": "electron-dist"
+    },
+    "files": [
+      "electron/**/*",
+      "!electron/installer.nsh",
+      "frontend/build/**/*",
+      "frontend/public/image.png",
+      "package.json"
+    ],
+    "icon": "frontend/public/image.png",
+    "extraResources": [
+      {
+        "from": "backend",
+        "to": "backend",
+        "filter": [
+          "**/*",
+          "!**/__pycache__/**",
+          "!**/*.pyc"
+        ]
+      }
+    ],
+    "win": {
+      "icon": "src-tauri/icons/icon.ico",
+      "executableName": "ControleExped",
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "artifactName": "ControleExped-v${version}-Setup.${ext}"
+    },
+    "mac": {
+      "icon": "src-tauri/icons/icon.icns",
+      "category": "public.app-category.business",
+      "target": [
+        "dmg",
+        "zip"
+      ]
+    },
+    "linux": {
+      "icon": "src-tauri/icons/icon.png",
+      "category": "Office",
+      "target": [
+        "AppImage"
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "allowElevation": true,
+      "include": "electron/installer.nsh",
+      "uninstallDisplayName": "ControleExped v1.2",
+      "shortcutName": "ControleExped v1.2",
+      "createDesktopShortcut": "always",
+      "warningsAsErrors": false
+    }
+  }
+}

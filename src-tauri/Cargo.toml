@@ -1,0 +1,16 @@
+[package]
+name = "controle_expedicao"
+version = "0.1.0"
+description = "Dashboard Controle Expedição"
+authors = ["Controle Expedição"]
+edition = "2021"
+
+[lib]
+name = "controle_expedicao_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
