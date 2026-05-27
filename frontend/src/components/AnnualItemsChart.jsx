@@ -9,6 +9,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import { CHART_LINE_ANIMATION, VALUE_AXIS_DOMAIN, chartMountKey } from "./chartAnimation";
 
 function formatIntCompact(value) {
   const n = Number(value || 0);
@@ -23,10 +24,14 @@ function AnnualItemsChart({ data, accentColor }) {
 
   return (
     <ResponsiveContainer width="100%" height="100%">
-      <LineChart data={data} margin={{ top: 24, right: 12, left: 8, bottom: 8 }}>
+      <LineChart
+        key={chartMountKey("annual-itens", data?.length)}
+        data={data}
+        margin={{ top: 24, right: 12, left: 8, bottom: 8 }}
+      >
         <CartesianGrid strokeDasharray="2 6" stroke="#e2e8f0" vertical={false} />
         <XAxis dataKey="MES_LABEL" stroke="#64748b" />
-        <YAxis hide />
+        <YAxis hide domain={VALUE_AXIS_DOMAIN} />
         <Tooltip formatter={(v) => [Number(v || 0).toLocaleString("pt-BR"), "Itens"]} />
         <Line
           type="monotone"
@@ -37,6 +42,7 @@ function AnnualItemsChart({ data, accentColor }) {
           strokeOpacity={0.85}
           dot={{ r: 3, fill: lineColor }}
           activeDot={{ r: 5 }}
+          {...CHART_LINE_ANIMATION}
         >
           {showLabels && (
             <LabelList

@@ -22,7 +22,7 @@ function KpiCard({
   accentColor = "#dc2626",
   compact = false,
 }) {
-  const trendColor = trend == null ? "text-slate-500" : trend >= 0 ? "text-emerald-600" : "text-red-600";
+  const trendColor = trend == null ? "text-slate-500" : trend >= 0 ? "text-brand-600" : "text-brand-900";
   const trendLabel =
     trend == null
       ? "Sem base comparativa"
@@ -31,7 +31,7 @@ function KpiCard({
   return (
     <div
       className={`h-full rounded-2xl border border-slate-200 shadow-sm transition-all duration-300 hover:shadow-md ${
-        primary ? "bg-slate-50" : "bg-white"
+        primary ? "bg-brand-50" : "bg-white"
       }`}
       style={{
         padding: compact ? "7px 9px" : "14px",

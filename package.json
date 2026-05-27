@@ -22,7 +22,9 @@
     "start:windows": "node scripts/electron-build-win-desktop.js",
     "tauri": "tauri",
     "tauri:dev": "tauri dev",
-    "tauri:build": "tauri build"
+    "tauri:build": "tauri build",
+    "icons:validate": "node scripts/validate-icons.js",
+    "icons:fix": "node scripts/validate-icons.js --fix"
   },
   "dependencies": {
     "electron-updater": "^6.8.3"

@@ -12,7 +12,17 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import {
+  CHART_BAR_ANIMATION,
+  CHART_BAR_ANIMATION_DELAYED,
+  CHART_LINE_ANIMATION,
+  VALUE_AXIS_DOMAIN,
+  chartMountKey,
+} from "./chartAnimation";
+import { BAR_CHART_MARGIN_TOP, BAR_LABEL_TOP_STYLE } from "./chartLabels";
 import KpiCard from "./KpiCard";
+import ChartMetricToggle from "./ChartMetricToggle";
+import { BRAND, CHART_ITENS, FATURAMENTO_COLORS } from "../theme/colors";
 
 const LOCAL_OPTIONS = [
   { value: "todos", label: "Todos" },
@@ -20,9 +30,9 @@ const LOCAL_OPTIONS = [
   { value: "sustentacao", label: "Sustentação (08)" },
 ];
 
-const COLOR_ACCENT = "#7c3aed";
-const COLOR_GERADA = "#7c3aed";
-const COLOR_AGUARDANDO = "#f59e0b";
+const COLOR_ACCENT = FATURAMENTO_COLORS.accent;
+const COLOR_GERADA = FATURAMENTO_COLORS.gerada;
+const COLOR_AGUARDANDO = FATURAMENTO_COLORS.aguardando;
 
 // No modo mensal apresentamos apenas os meses do ano corrente do calendário.
 const MENSAL_YEAR = new Date().getFullYear();
@@ -89,17 +99,27 @@ function StatusTooltip({ active, payload, label }) {
 function MensalTooltip({ active, payload, label }) {
   if (!active || !payload?.length) return null;
   const p = payload[0]?.payload || {};
+  const entry = payload[0];
+  const isNf = entry?.dataKey === "QTD_GERADAS";
   return (
     <div className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs shadow-md">
       <p className="font-semibold text-slate-800">{label}</p>
-      <p className="text-slate-700">
-        {Number(p.VALOR_TOTAL || 0).toLocaleString("pt-BR", {
-          style: "currency",
-          currency: "BRL",
-          minimumFractionDigits: 2,
-        })}
-      </p>
-      <p className="text-slate-500">{Number(p.QTD_GERADAS || 0).toLocaleString("pt-BR")} NF</p>
+      {isNf ? (
+        <p className="text-slate-700">
+          {Number(entry.value || 0).toLocaleString("pt-BR")} notas fiscais
+        </p>
+      ) : (
+        <>
+          <p className="text-slate-700">
+            {Number(p.VALOR_TOTAL || 0).toLocaleString("pt-BR", {
+              style: "currency",
+              currency: "BRL",
+              minimumFractionDigits: 2,
+            })}
+          </p>
+          <p className="text-slate-500">{Number(p.QTD_GERADAS || 0).toLocaleString("pt-BR")} NF</p>
+        </>
+      )}
     </div>
   );
 }
@@ -112,6 +132,7 @@ function Faturamento({ api }) {
   const [data, setData] = useState(emptyPayload);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
+  const [dailyLineMetric, setDailyLineMetric] = useState("valor");
 
   useEffect(() => {
     let cancelled = false;
@@ -313,14 +334,14 @@ function Faturamento({ api }) {
             <button
               type="button"
               onClick={() => setMode("mensal")}
-              className={`rounded-md px-2.5 py-1 text-xs font-medium ${mode === "mensal" ? "bg-violet-600 text-white" : "text-slate-700 hover:bg-slate-50"}`}
+              className={`rounded-md px-2.5 py-1 text-xs font-medium ${mode === "mensal" ? "bg-brand-600 text-white" : "text-brand-900 hover:bg-brand-50"}`}
             >
               Mensal
             </button>
             <button
               type="button"
               onClick={() => setMode("anual")}
-              className={`rounded-md px-2.5 py-1 text-xs font-medium ${mode === "anual" ? "bg-violet-600 text-white" : "text-slate-700 hover:bg-slate-50"}`}
+              className={`rounded-md px-2.5 py-1 text-xs font-medium ${mode === "anual" ? "bg-brand-600 text-white" : "text-brand-900 hover:bg-brand-50"}`}
             >
               Anual
             </button>
@@ -337,8 +358,8 @@ function Faturamento({ api }) {
                 onClick={() => setLocalFilter(opt.value)}
                 className={`rounded-md px-2 py-1 text-xs font-medium ${
                   localFilter === opt.value
-                    ? "bg-violet-600 text-white"
-                    : "text-slate-700 hover:bg-slate-50"
+                    ? "bg-brand-600 text-white"
+                    : "text-brand-900 hover:bg-brand-50"
                 }`}
               >
                 {opt.label}
@@ -386,10 +407,10 @@ function Faturamento({ api }) {
       )}
 
       {noData && !isLoading && !error ? (
-        <div className="flex min-h-0 flex-1 items-center justify-center rounded-xl border border-dashed border-violet-300 bg-violet-50/40 p-4">
+        <div className="flex min-h-0 flex-1 items-center justify-center rounded-xl border border-dashed border-brand-300 bg-brand-50/60 p-4">
           <div className="max-w-md text-center">
-            <p className="text-sm font-semibold text-violet-900">Sem dados de faturamento.</p>
-            <p className="mt-1 text-xs text-violet-800">
+            <p className="text-sm font-semibold text-brand-900">Sem dados de faturamento.</p>
+            <p className="mt-1 text-xs text-brand-800">
               Vá à secção <strong>Dados</strong> e carregue a planilha de faturamento (.xlsx ou .csv) com as colunas{" "}
               <code className="text-[11px]">FILA_ORDEM</code>, <code className="text-[11px]">LOCAL</code>,{" "}
               <code className="text-[11px]">DATA_EMISSAO_NF</code> e <code className="text-[11px]">R$PROJETO</code>.
@@ -448,15 +469,20 @@ function Faturamento({ api }) {
               </div>
               <div className="min-h-0 flex-1">
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={chartData} margin={{ top: 24, right: 12, left: 8, bottom: 8 }}>
+                  <BarChart
+                    key={chartMountKey("fat-mensal", selectedMonth, chartData.length)}
+                    data={chartData}
+                    margin={{ top: BAR_CHART_MARGIN_TOP, right: 12, left: 8, bottom: 8 }}
+                  >
                     <CartesianGrid strokeDasharray="2 6" stroke="#e2e8f0" vertical={false} />
                     <XAxis dataKey={xKey} stroke="#64748b" />
-                    <YAxis hide />
+                    <YAxis hide domain={VALUE_AXIS_DOMAIN} />
                     <Tooltip content={<MensalTooltip />} cursor={{ fill: "rgba(148,163,184,0.12)" }} />
                     <Bar
                       dataKey="VALOR_TOTAL"
                       name="Valor"
                       radius={[8, 8, 0, 0]}
+                      {...CHART_BAR_ANIMATION}
                       onClick={(entry) => {
                         if (mode === "mensal" && entry?.MES_ANO) setSelectedMonth(entry.MES_ANO);
                       }}
@@ -465,7 +491,7 @@ function Faturamento({ api }) {
                         dataKey="VALOR_TOTAL"
                         position="top"
                         formatter={formatBRLCompact}
-                        style={{ fill: "#0f172a", fontSize: 11, fontWeight: 600 }}
+                        style={BAR_LABEL_TOP_STYLE}
                       />
                       {chartData.map((entry) => {
                         const isSelected =
@@ -486,11 +512,20 @@ function Faturamento({ api }) {
 
             {mode === "mensal" ? (
               <div className="flex min-h-0 min-w-0 flex-col rounded-xl border border-slate-200 bg-white p-2 shadow-sm">
-                <div className="mb-1 flex shrink-0 items-center justify-between">
+                <div className="mb-1 flex shrink-0 flex-wrap items-center justify-between gap-2">
                   <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-                    Evolução diária do valor faturado
+                    Evolução diária
                   </p>
-                  <span className="text-[10px] text-slate-500">{dailyLabel}</span>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <ChartMetricToggle
+                      value={dailyLineMetric}
+                      onChange={setDailyLineMetric}
+                      accentColor={COLOR_ACCENT}
+                      altLabel="Qtd. NF"
+                      altKey="nf"
+                    />
+                    <span className="text-[10px] text-slate-500">{dailyLabel}</span>
+                  </div>
                 </div>
                 <div className="min-h-0 flex-1">
                   {dailySeries.length === 0 ? (
@@ -499,26 +534,36 @@ function Faturamento({ api }) {
                     </div>
                   ) : (
                     <ResponsiveContainer width="100%" height="100%">
-                      <LineChart data={dailySeries} margin={{ top: 24, right: 12, left: 8, bottom: 8 }}>
+                      <LineChart
+                        key={chartMountKey("fat-diario", dailyLineMetric, selectedMonth, dailySeries.length)}
+                        data={dailySeries}
+                        margin={{ top: BAR_CHART_MARGIN_TOP, right: 12, left: 8, bottom: 8 }}
+                      >
                         <CartesianGrid strokeDasharray="2 6" stroke="#e2e8f0" vertical={false} />
                         <XAxis dataKey="DIA_LABEL" stroke="#64748b" interval="preserveStartEnd" />
-                        <YAxis hide />
+                        <YAxis hide domain={VALUE_AXIS_DOMAIN} />
                         <Tooltip content={<MensalTooltip />} cursor={{ stroke: "#cbd5e1" }} />
                         <Line
                           type="monotone"
-                          dataKey="VALOR_TOTAL"
-                          name="Valor"
-                          stroke={COLOR_ACCENT}
+                          dataKey={dailyLineMetric === "nf" ? "QTD_GERADAS" : "VALOR_TOTAL"}
+                          name={dailyLineMetric === "nf" ? "Qtd. NF" : "Valor"}
+                          stroke={dailyLineMetric === "nf" ? CHART_ITENS : COLOR_ACCENT}
                           strokeWidth={2.5}
-                          dot={{ r: 3, fill: COLOR_ACCENT }}
+                          dot={{
+                            r: 3,
+                            fill: dailyLineMetric === "nf" ? CHART_ITENS : COLOR_ACCENT,
+                          }}
                           activeDot={{ r: 5 }}
+                          {...CHART_LINE_ANIMATION}
                         >
                           {dailySeries.length <= 31 && (
                             <LabelList
-                              dataKey="VALOR_TOTAL"
+                              dataKey={dailyLineMetric === "nf" ? "QTD_GERADAS" : "VALOR_TOTAL"}
                               position="top"
-                              formatter={formatBRLCompact}
-                              style={{ fill: "#0f172a", fontSize: 10, fontWeight: 600 }}
+                              formatter={
+                                dailyLineMetric === "nf" ? formatIntCompact : formatBRLCompact
+                              }
+                              style={{ ...BAR_LABEL_TOP_STYLE, fontSize: 10 }}
                             />
                           )}
                         </Line>
@@ -535,17 +580,26 @@ function Faturamento({ api }) {
                   </p>
                   <div className="min-h-0 flex-1">
                     <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={statusComparativo} margin={{ top: 24, right: 12, left: 8, bottom: 8 }}>
+                      <BarChart
+                        key={chartMountKey("fat-status", statusComparativo.length)}
+                        data={statusComparativo}
+                        margin={{ top: BAR_CHART_MARGIN_TOP, right: 12, left: 8, bottom: 8 }}
+                      >
                         <CartesianGrid strokeDasharray="2 6" stroke="#e2e8f0" vertical={false} />
                         <XAxis dataKey="STATUS" stroke="#64748b" />
-                        <YAxis hide />
+                        <YAxis hide domain={VALUE_AXIS_DOMAIN} />
                         <Tooltip content={<StatusTooltip />} cursor={{ fill: "rgba(148,163,184,0.12)" }} />
-                        <Bar dataKey="QTD" name="Quantidade" radius={[8, 8, 0, 0]}>
+                        <Bar
+                          dataKey="QTD"
+                          name="Quantidade"
+                          radius={[8, 8, 0, 0]}
+                          {...CHART_BAR_ANIMATION}
+                        >
                           <LabelList
                             dataKey="QTD"
                             position="top"
                             formatter={formatIntCompact}
-                            style={{ fill: "#0f172a", fontSize: 11, fontWeight: 600 }}
+                            style={BAR_LABEL_TOP_STYLE}
                           />
                           {statusComparativo.map((entry) => (
                             <Cell
@@ -565,17 +619,27 @@ function Faturamento({ api }) {
                   </p>
                   <div className="min-h-0 flex-1">
                     <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={porLocalData} margin={{ top: 24, right: 12, left: 8, bottom: 8 }}>
+                      <BarChart
+                        key={chartMountKey("fat-local", porLocalData.length)}
+                        data={porLocalData}
+                        margin={{ top: BAR_CHART_MARGIN_TOP, right: 12, left: 8, bottom: 8 }}
+                      >
                         <CartesianGrid strokeDasharray="2 6" stroke="#e2e8f0" vertical={false} />
                         <XAxis dataKey="LABEL" stroke="#64748b" />
-                        <YAxis hide />
+                        <YAxis hide domain={VALUE_AXIS_DOMAIN} />
                         <Tooltip content={<StatusTooltip />} cursor={{ fill: "rgba(148,163,184,0.12)" }} />
-                        <Bar dataKey="QTD_GERADAS" name="NF Gerada" fill={COLOR_GERADA} radius={[8, 8, 0, 0]}>
+                        <Bar
+                          dataKey="QTD_GERADAS"
+                          name="NF Gerada"
+                          fill={COLOR_GERADA}
+                          radius={[8, 8, 0, 0]}
+                          {...CHART_BAR_ANIMATION}
+                        >
                           <LabelList
                             dataKey="QTD_GERADAS"
                             position="top"
                             formatter={formatIntCompact}
-                            style={{ fill: "#0f172a", fontSize: 11, fontWeight: 600 }}
+                            style={BAR_LABEL_TOP_STYLE}
                           />
                         </Bar>
                         <Bar
@@ -583,12 +647,13 @@ function Faturamento({ api }) {
                           name="Aguardando faturamento"
                           fill={COLOR_AGUARDANDO}
                           radius={[8, 8, 0, 0]}
+                          {...CHART_BAR_ANIMATION_DELAYED}
                         >
                           <LabelList
                             dataKey="QTD_AGUARDANDO"
                             position="top"
                             formatter={formatIntCompact}
-                            style={{ fill: "#7c2d12", fontSize: 10, fontWeight: 500 }}
+                            style={BAR_LABEL_TOP_STYLE}
                           />
                         </Bar>
                       </BarChart>

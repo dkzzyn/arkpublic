@@ -1,7 +1,11 @@
 import React, { useMemo } from "react";
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
 
-const EXTRA_FILLS = ["#14b8a6", "#2dd4bf", "#5eead4", "#0f766e", "#115e59", "#134e4a", "#94a3b8", "#64748b", "#475569"];
+import { CHART_PIE_ANIMATION, chartMountKey } from "./chartAnimation";
+import { createPieInsideLabel, formatPieShareLabel } from "./chartLabels";
+import { CHART_RED_SCALE, DEFAULT_ACCENT } from "../theme/colors";
+
+const EXTRA_FILLS = CHART_RED_SCALE.slice(1);
 
 function formatBRL(v) {
   return Number(v || 0).toLocaleString("pt-BR", {
@@ -9,6 +13,13 @@ function formatBRL(v) {
     currency: "BRL",
     minimumFractionDigits: 2,
   });
+}
+
+function formatBRLCompact(value) {
+  const n = Number(value || 0);
+  if (n >= 1_000_000) return `R$ ${(n / 1_000_000).toFixed(1)} mi`;
+  if (n >= 1_000) return `R$ ${(n / 1_000).toFixed(1)} mil`;
+  return `R$ ${n.toFixed(0)}`;
 }
 
 function ClienteFatiaTooltip({ active, payload, total }) {
@@ -27,13 +38,21 @@ function ClienteFatiaTooltip({ active, payload, total }) {
   );
 }
 
-function ClienteFatiaChart({ data, color = "#0d9488" }) {
+function ClienteFatiaChart({ data, color = DEFAULT_ACCENT }) {
   const total = useMemo(() => data?.reduce((s, d) => s + Number(d.value || 0), 0) ?? 0, [data]);
 
   const fills = useMemo(() => {
     if (!data?.length) return [];
     return data.map((_, i) => (i === 0 ? color : EXTRA_FILLS[(i - 1) % EXTRA_FILLS.length]));
   }, [data, color]);
+
+  const renderPieLabel = useMemo(
+    () =>
+      createPieInsideLabel((value, percent) =>
+        formatPieShareLabel(value, percent, formatBRLCompact),
+      ),
+    [],
+  );
 
   if (!data?.length || total <= 0) {
     return (
@@ -45,7 +64,7 @@ function ClienteFatiaChart({ data, color = "#0d9488" }) {
 
   return (
     <ResponsiveContainer width="100%" height="100%">
-      <PieChart margin={{ top: 8, right: 8, bottom: 8, left: 8 }}>
+      <PieChart key={chartMountKey("fatia", data.length, total)} margin={{ top: 8, right: 8, bottom: 8, left: 8 }}>
         <Pie
           data={data}
           dataKey="value"
@@ -56,6 +75,9 @@ function ClienteFatiaChart({ data, color = "#0d9488" }) {
           paddingAngle={1.5}
           stroke="#fff"
           strokeWidth={1.5}
+          label={renderPieLabel}
+          labelLine={false}
+          {...CHART_PIE_ANIMATION}
         >
           {data.map((entry, i) => (
             <Cell key={entry.name} fill={fills[i]} />

@@ -4,24 +4,28 @@ import Sidebar from "./Sidebar";
 import KpiCard from "./KpiCard";
 import MetricsChart from "./MetricsChart";
 import DailyLineChart from "./DailyLineChart";
+import ChartMetricToggle from "./ChartMetricToggle";
 import ClientesChart from "./ClientesChart";
 import ClienteFatiaChart from "./ClienteFatiaChart";
 import Faturamento from "./Faturamento";
+import ExportSlidesModal from "./ExportSlidesModal";
+import { buildExportSnapshot } from "../utils/exportSlides";
+import { BRAND, OPERATION_COLORS, SECTION_COLORS } from "../theme/colors";
 
 const api = axios.create({
   baseURL: process.env.REACT_APP_API_URL || "http://localhost:8000",
 });
 
 const OPERATION_META = {
-  implantacao: { title: "Implantação", color: "#dc2626" },
-  sustentacao: { title: "Sustentação", color: "#1f2937" },
-  impressoras: { title: "Impressoras", color: "#4338ca" },
+  implantacao: { title: "Implantação", color: OPERATION_COLORS.implantacao },
+  sustentacao: { title: "Sustentação", color: OPERATION_COLORS.sustentacao },
+  impressoras: { title: "Impressoras", color: OPERATION_COLORS.impressoras },
 };
 const SECTION_META = {
-  dados: { title: "Dados", color: "#0f172a" },
-  expedicao: { title: "Expedição", color: "#dc2626" },
-  faturamento: { title: "Faturamento", color: "#7c3aed" },
-  clientes: { title: "Top clientes", color: "#0d9488" },
+  dados: { title: "Dados", color: SECTION_COLORS.dados },
+  expedicao: { title: "Expedição", color: SECTION_COLORS.expedicao },
+  faturamento: { title: "Faturamento", color: SECTION_COLORS.faturamento },
+  clientes: { title: "Top clientes", color: SECTION_COLORS.clientes },
 };
 
 const emptyClientesPayload = {
@@ -50,13 +54,17 @@ const MONTH_LABELS = {
 
 function RankBadge({ index }) {
   const tone =
-    index === 0 ? { fill: "#f59e0b", stroke: "#b45309" } : index === 1 ? { fill: "#cbd5e1", stroke: "#64748b" } : { fill: "#d97706", stroke: "#92400e" };
+    index === 0
+      ? { fill: BRAND[400], stroke: BRAND[700] }
+      : index === 1
+        ? { fill: BRAND[200], stroke: BRAND[600] }
+        : { fill: BRAND[300], stroke: BRAND[800] };
   const label = String(index + 1);
   return (
     <span className="mr-1.5 inline-flex h-4 w-4 items-center justify-center">
       <svg width="16" height="16" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
         <circle cx="10" cy="10" r="8" fill={tone.fill} stroke={tone.stroke} strokeWidth="1.4" />
-        <text x="10" y="13" textAnchor="middle" fontSize="9" fontWeight="700" fill="#0f172a">
+        <text x="10" y="13" textAnchor="middle" fontSize="9" fontWeight="700" fill={BRAND[950]}>
           {label}
         </text>
       </svg>
@@ -84,6 +92,10 @@ function Dashboard() {
   const [clienteDetalheLoading, setClienteDetalheLoading] = useState(false);
   const [clienteDetalheError, setClienteDetalheError] = useState("");
   const [clienteSelectedMonth, setClienteSelectedMonth] = useState("");
+  const [exportOpen, setExportOpen] = useState(false);
+  const [exportLoading, setExportLoading] = useState(false);
+  const [dailyLineMetric, setDailyLineMetric] = useState("valor");
+  const [clienteDailyLineMetric, setClienteDailyLineMetric] = useState("valor");
 
   const fetchDashboard = async () => {
     setIsLoading(true);
@@ -431,18 +443,60 @@ function Dashboard() {
     return clienteDetalhe.diario.filter((row) => row.MES_ANO === clienteSelectedMonth);
   }, [clienteDetalhe, clienteSelectedMonth]);
 
+  const handleBuildExportSnapshot = async (exportConfig) => {
+    setExportLoading(true);
+    try {
+      let faturamentoData = null;
+      if (exportConfig.includeFaturamento) {
+        try {
+          const { data } = await api.get("/faturamento");
+          faturamentoData = data;
+        } catch {
+          faturamentoData = null;
+        }
+      }
+      return buildExportSnapshot({
+        config: exportConfig,
+        dataMap,
+        expedicaoContext: { mode, selectedMonth, selectedYear },
+        faturamentoData,
+        clientesData,
+        clienteTipo,
+      });
+    } finally {
+      setExportLoading(false);
+    }
+  };
+
   return (
-    <div className="flex h-screen w-full overflow-hidden bg-slate-100">
+    <div className="flex h-screen w-full overflow-hidden bg-brand-50">
       <Sidebar section={section} onSectionChange={setSection} />
 
       <main className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden p-3">
-        <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-          <div className="mb-2 flex shrink-0 items-center justify-between">
+        <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-brand-200 bg-white p-4 shadow-sm">
+          <div className="mb-2 flex shrink-0 items-center justify-between gap-2">
             <h2 className="text-xl font-semibold" style={{ color: meta.color }}>
               {meta.title}
             </h2>
-            {isLoading && <span className="text-xs text-slate-500">Atualizando...</span>}
+            <div className="flex items-center gap-2">
+              {isLoading && <span className="text-xs text-slate-500">Atualizando...</span>}
+              <button
+                type="button"
+                onClick={() => setExportOpen(true)}
+                className="rounded-lg border border-brand-200 bg-white px-3 py-1.5 text-xs font-semibold text-brand-900 shadow-sm hover:bg-brand-50"
+                title="Gerar apresentação HTML com resumo dos dados"
+              >
+                Exportar slides
+              </button>
+            </div>
           </div>
+
+          <ExportSlidesModal
+            open={exportOpen}
+            onClose={() => setExportOpen(false)}
+            onBuildSnapshot={handleBuildExportSnapshot}
+            isExporting={exportLoading}
+          />
 
           {error && (
             <div className="mb-2 shrink-0 rounded-lg border border-red-300 bg-red-50 px-2 py-1.5 text-xs text-red-700">
@@ -458,14 +512,14 @@ function Dashboard() {
                   <button
                     type="button"
                     onClick={() => setMode("mensal")}
-                    className={`rounded-md px-2.5 py-1 text-xs font-medium ${mode === "mensal" ? "bg-red-600 text-white" : "text-slate-700 hover:bg-slate-50"}`}
+                    className={`rounded-md px-2.5 py-1 text-xs font-medium ${mode === "mensal" ? "bg-brand-600 text-white" : "text-brand-900 hover:bg-brand-50"}`}
                   >
                     Mensal
                   </button>
                   <button
                     type="button"
                     onClick={() => setMode("anual")}
-                    className={`rounded-md px-2.5 py-1 text-xs font-medium ${mode === "anual" ? "bg-red-600 text-white" : "text-slate-700 hover:bg-slate-50"}`}
+                    className={`rounded-md px-2.5 py-1 text-xs font-medium ${mode === "anual" ? "bg-brand-600 text-white" : "text-brand-900 hover:bg-brand-50"}`}
                   >
                     Anual
                   </button>
@@ -485,8 +539,13 @@ function Dashboard() {
                       type="button"
                       onClick={() => setOperation(opt.value)}
                       className={`rounded-md px-2 py-1 text-xs font-medium ${
-                        operation === opt.value ? "bg-red-600 text-white" : "text-slate-700 hover:bg-slate-50"
+                        operation === opt.value ? "text-white shadow-sm" : "text-brand-900 hover:bg-brand-50"
                       }`}
+                      style={
+                        operation === opt.value
+                          ? { backgroundColor: OPERATION_COLORS[opt.value] }
+                          : undefined
+                      }
                     >
                       {opt.label}
                     </button>
@@ -547,37 +606,37 @@ function Dashboard() {
 
           {section === "dados" ? (
             <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden">
-              <div className="relative shrink-0 rounded-2xl border border-slate-200 bg-gradient-to-r from-slate-50 via-white to-slate-100 px-4 py-3 shadow-sm">
+              <div className="relative shrink-0 rounded-2xl border border-brand-200 bg-gradient-to-r from-brand-50 via-white to-brand-100 px-4 py-3 shadow-sm">
                 <h3 className="text-lg font-semibold text-slate-900">Upload de Arquivos</h3>
                 <p className="mt-0.5 text-xs text-slate-600">Envie e organize arquivos de base para o dashboard.</p>
                 <div className="absolute right-3 top-3 hidden rounded-xl border border-slate-200 bg-white p-2 shadow-sm sm:block">
                   <svg width="44" height="44" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <ellipse cx="32" cy="14" rx="18" ry="8" fill="#cbd5e1" />
-                    <rect x="14" y="14" width="36" height="28" fill="#93c5fd" />
-                    <ellipse cx="32" cy="42" rx="18" ry="8" fill="#60a5fa" />
-                    <line x1="14" y1="28" x2="50" y2="28" stroke="#334155" strokeWidth="2" />
-                    <line x1="14" y1="36" x2="50" y2="36" stroke="#334155" strokeWidth="2" />
+                    <ellipse cx="32" cy="14" rx="18" ry="8" fill={BRAND[200]} />
+                    <rect x="14" y="14" width="36" height="28" fill={BRAND[300]} />
+                    <ellipse cx="32" cy="42" rx="18" ry="8" fill={BRAND[500]} />
+                    <line x1="14" y1="28" x2="50" y2="28" stroke={BRAND[800]} strokeWidth="2" />
+                    <line x1="14" y1="36" x2="50" y2="36" stroke={BRAND[800]} strokeWidth="2" />
                   </svg>
                 </div>
               </div>
 
               <div className="grid min-h-0 flex-1 grid-cols-1 gap-3 overflow-y-auto lg:grid-cols-2">
-                <label className="flex min-h-[220px] cursor-pointer flex-col items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white p-3 text-center shadow-sm hover:bg-slate-50">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Upload Expedição</p>
+                <label className="flex min-h-[220px] cursor-pointer flex-col items-center justify-center gap-2 rounded-2xl border border-brand-200 bg-white p-3 text-center shadow-sm hover:bg-brand-50">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-brand-800">Upload Expedição</p>
                   <svg width="38" height="38" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M7 18h10a4 4 0 0 0 .3-8A5 5 0 0 0 7.6 8.6 3.5 3.5 0 0 0 7 18Z" stroke="#475569" strokeWidth="1.8" />
-                    <path d="M12 15V9m0 0-2 2m2-2 2 2" stroke="#2563eb" strokeWidth="1.8" strokeLinecap="round" />
+                    <path d="M7 18h10a4 4 0 0 0 .3-8A5 5 0 0 0 7.6 8.6 3.5 3.5 0 0 0 7 18Z" stroke={BRAND[700]} strokeWidth="1.8" />
+                    <path d="M12 15V9m0 0-2 2m2-2 2 2" stroke={BRAND[600]} strokeWidth="1.8" strokeLinecap="round" />
                   </svg>
                   <p className="text-sm font-medium text-slate-800">Arraste seus arquivos aqui ou clique para selecionar</p>
                   <p className="text-xs text-slate-500">Upload da base de expedição (.xlsx ou .csv)</p>
                   <input type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={handleUpload} />
                 </label>
 
-                <label className="flex min-h-[220px] cursor-pointer flex-col items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white p-3 text-center shadow-sm hover:bg-slate-50">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Upload Faturamento</p>
+                <label className="flex min-h-[220px] cursor-pointer flex-col items-center justify-center gap-2 rounded-2xl border border-brand-200 bg-white p-3 text-center shadow-sm hover:bg-brand-50">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-brand-800">Upload Faturamento</p>
                   <svg width="38" height="38" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M7 18h10a4 4 0 0 0 .3-8A5 5 0 0 0 7.6 8.6 3.5 3.5 0 0 0 7 18Z" stroke="#475569" strokeWidth="1.8" />
-                    <path d="M12 15V9m0 0-2 2m2-2 2 2" stroke="#2563eb" strokeWidth="1.8" strokeLinecap="round" />
+                    <path d="M7 18h10a4 4 0 0 0 .3-8A5 5 0 0 0 7.6 8.6 3.5 3.5 0 0 0 7 18Z" stroke={BRAND[700]} strokeWidth="1.8" />
+                    <path d="M12 15V9m0 0-2 2m2-2 2 2" stroke={BRAND[500]} strokeWidth="1.8" strokeLinecap="round" />
                   </svg>
                   <p className="text-sm font-medium text-slate-800">Arraste seus arquivos aqui ou clique para selecionar</p>
                   <p className="text-xs text-slate-500">Upload da base de faturamento (.xlsx ou .csv)</p>
@@ -630,7 +689,7 @@ function Dashboard() {
                     {clientesData.ranking?.length > 0 && clientesData.top_cliente_share_pct != null ? (
                       <p className="text-xs leading-snug text-slate-800">
                         <span className="font-semibold">{clientesData.ranking[0][RS_KEY]}</span> concentra{" "}
-                        <span className="font-semibold text-teal-700">{clientesData.top_cliente_share_pct}%</span> do
+                        <span className="font-semibold text-brand-700">{clientesData.top_cliente_share_pct}%</span> do
                         faturamento.
                       </p>
                     ) : (
@@ -674,7 +733,7 @@ function Dashboard() {
                                 onClick={() => setSelectedClienteRazao(row[RS_KEY])}
                                 className={`flex w-full items-start justify-between gap-2 rounded-lg border px-2 py-1.5 text-left transition-colors ${
                                   idx === 0
-                                    ? "border-teal-200 bg-teal-50/60 hover:bg-teal-50"
+                                    ? "border-brand-300 bg-brand-50/80 hover:bg-brand-100"
                                     : "border-slate-100 bg-slate-50/80 hover:bg-white"
                                 }`}
                               >
@@ -693,7 +752,7 @@ function Dashboard() {
                 ) : null}
 
                 {selectedClienteRazao ? (
-                  <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-hidden rounded-xl border border-teal-200 bg-teal-50/40 p-2 shadow-sm sm:p-3">
+                  <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-hidden rounded-xl border border-brand-200 bg-brand-50/50 p-2 shadow-sm sm:p-3">
                     <div className="shrink-0 flex flex-wrap items-start justify-between gap-2">
                       <div className="min-w-0">
                         <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Cliente selecionado</p>
@@ -766,23 +825,35 @@ function Dashboard() {
                               <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
                                 Diário no mês
                               </p>
-                              {clienteMonthOptions.length > 0 ? (
-                                <select
-                                  value={clienteSelectedMonth}
-                                  onChange={(e) => setClienteSelectedMonth(e.target.value)}
-                                  className="rounded-lg border border-slate-200 bg-slate-50/80 px-2.5 py-1.5 text-[11px] font-medium text-slate-800 shadow-sm outline-none focus:border-teal-400 focus:ring-1 focus:ring-teal-300"
-                                >
-                                  {clienteMonthOptions.map((m) => (
-                                    <option key={m} value={m}>
-                                      {m}
-                                    </option>
-                                  ))}
-                                </select>
-                              ) : null}
+                              <div className="flex flex-wrap items-center gap-2">
+                                <ChartMetricToggle
+                                  value={clienteDailyLineMetric}
+                                  onChange={setClienteDailyLineMetric}
+                                  accentColor={meta.color}
+                                />
+                                {clienteMonthOptions.length > 0 ? (
+                                  <select
+                                    value={clienteSelectedMonth}
+                                    onChange={(e) => setClienteSelectedMonth(e.target.value)}
+                                    className="rounded-lg border border-brand-200 bg-brand-50/80 px-2.5 py-1.5 text-[11px] font-medium text-brand-950 shadow-sm outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-300"
+                                  >
+                                    {clienteMonthOptions.map((m) => (
+                                      <option key={m} value={m}>
+                                        {m}
+                                      </option>
+                                    ))}
+                                  </select>
+                                ) : null}
+                              </div>
                             </div>
                             <div className="min-h-0 min-w-0 flex-1">
                               {clienteDailyData.length > 0 ? (
-                                <DailyLineChart data={clienteDailyData} color={meta.color} domainFromZero />
+                                <DailyLineChart
+                                  data={clienteDailyData}
+                                  color={meta.color}
+                                  metric={clienteDailyLineMetric}
+                                  domainFromZero
+                                />
                               ) : (
                                 <div className="flex h-full min-h-0 items-center justify-center rounded-lg border border-dashed border-slate-200 bg-slate-50/50 px-2 text-center text-xs text-slate-500">
                                   Sem movimento diário neste mês.
@@ -811,11 +882,19 @@ function Dashboard() {
                     compact
                   />
                 </div>
-                <div className="col-span-6 sm:col-span-3 lg:col-span-2">
+                <div className="col-span-6 sm:col-span-4 lg:col-span-2">
                   <KpiCard title="NF no período" value={totals.nf} accentColor={meta.color} compact />
                 </div>
+                <div className="col-span-6 sm:col-span-4 lg:col-span-2">
+                  <KpiCard
+                    title={mode === "mensal" ? "Itens no mês" : "Itens no ano"}
+                    value={totals.itens}
+                    accentColor={meta.color}
+                    compact
+                  />
+                </div>
 
-                <div className="col-span-6 sm:col-span-6 lg:col-span-4">
+                <div className="col-span-12 sm:col-span-12 lg:col-span-4">
                   <KpiCard
                     title="Crescimento mensal"
                     value={crescimento ?? 0}
@@ -835,15 +914,15 @@ function Dashboard() {
                 }`}
               >
                 <div className="flex min-h-0 min-w-0 flex-col gap-1 rounded-xl border border-slate-200 bg-white p-2 shadow-sm">
-                  <p className="shrink-0 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-                    Valor (R$) por mês
+                  <p className="mb-1 shrink-0 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                    {mode === "mensal" ? "Valor (R$) por mês" : "Valor (R$) por mês do ano"}
                   </p>
                   <div className="min-h-0 flex-1">
                     <MetricsChart
                       data={chartData}
                       xKey={xKey}
                       color={meta.color}
-                      showItemsSeries={false}
+                      metric="valor"
                       selectable={mode === "mensal"}
                       selectedKey={selectedMonth}
                       highlightKey={monthOptions[monthOptions.length - 1] || ""}
@@ -854,8 +933,22 @@ function Dashboard() {
 
                 {mode === "mensal" && (
                   <div className="flex min-h-0 min-w-0 flex-col rounded-xl border border-slate-200 bg-white p-2 shadow-sm">
+                    <div className="mb-1 flex shrink-0 items-center justify-between gap-2">
+                      <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                        Evolução diária
+                      </p>
+                      <ChartMetricToggle
+                        value={dailyLineMetric}
+                        onChange={setDailyLineMetric}
+                        accentColor={meta.color}
+                      />
+                    </div>
                     <div className="min-h-0 flex-1">
-                      <DailyLineChart data={dailyData} color={meta.color} />
+                      <DailyLineChart
+                        data={dailyData}
+                        color={meta.color}
+                        metric={dailyLineMetric}
+                      />
                     </div>
                   </div>
                 )}

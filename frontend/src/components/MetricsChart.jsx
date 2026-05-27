@@ -1,4 +1,5 @@
 import React from "react";
+import { BRAND, CHART_ITENS, CHART_MUTED } from "../theme/colors";
 import {
   Bar,
   BarChart,
@@ -8,7 +9,10 @@ import {
   ResponsiveContainer,
   Tooltip,
   XAxis,
+  YAxis,
 } from "recharts";
+import { CHART_BAR_ANIMATION, VALUE_AXIS_DOMAIN, chartMountKey } from "./chartAnimation";
+import { BAR_CHART_MARGIN_TOP, BAR_LABEL_TOP_STYLE } from "./chartLabels";
 
 function formatBRL(value) {
   return Number(value || 0).toLocaleString("pt-BR", {
@@ -32,43 +36,52 @@ function formatIntCompact(value) {
   return n.toLocaleString("pt-BR");
 }
 
-function formatTooltip(value, name) {
-  if (name === "Valor Total") return formatBRL(value);
-  return Number(value || 0).toLocaleString("pt-BR");
-}
-
 function MetricsChart({
   data,
   xKey,
   color,
-  showItemsSeries = false,
+  metric = "valor",
   selectable = false,
   selectedKey = "",
   highlightKey = "",
   onSelect,
 }) {
-  const mutedColor = `${color}88`;
-  const selectedColor = `${color}cc`;
+  const isValor = metric !== "itens";
+  const dataKey = isValor ? "VALOR_TOTAL" : "QTD_ITENS";
+  const barColor = isValor ? color : CHART_ITENS;
+  const mutedColor = isValor ? `${color}88` : CHART_MUTED;
+  const selectedColor = isValor ? `${color}cc` : BRAND[900];
+  const name = isValor ? "Valor Total" : "Quantidade Itens";
+  const labelFormatter = isValor ? formatBRLCompact : formatIntCompact;
+  const tooltipFormatter = (value) =>
+    isValor ? formatBRL(value) : Number(value || 0).toLocaleString("pt-BR");
+
   return (
     <ResponsiveContainer width="100%" height="100%">
-      <BarChart data={data} margin={{ top: 24, right: 12, left: 8, bottom: 8 }}>
+      <BarChart
+        key={chartMountKey("metrics", dataKey, selectedKey, data.length)}
+        data={data}
+        margin={{ top: BAR_CHART_MARGIN_TOP, right: 12, left: 8, bottom: 8 }}
+      >
         <CartesianGrid strokeDasharray="2 6" stroke="#e2e8f0" vertical={false} />
         <XAxis dataKey={xKey} stroke="#64748b" />
-        <Tooltip formatter={formatTooltip} />
+        <YAxis hide domain={VALUE_AXIS_DOMAIN} />
+        <Tooltip formatter={tooltipFormatter} />
         <Bar
-          dataKey="VALOR_TOTAL"
-          name="Valor Total"
-          fill={color}
+          dataKey={dataKey}
+          name={name}
+          fill={barColor}
           radius={[8, 8, 0, 0]}
+          {...CHART_BAR_ANIMATION}
           onClick={(entry) => {
             if (selectable && onSelect && entry?.MES_ANO) onSelect(entry.MES_ANO);
           }}
         >
           <LabelList
-            dataKey="VALOR_TOTAL"
+            dataKey={dataKey}
             position="top"
-            formatter={formatBRLCompact}
-            style={{ fill: "#0f172a", fontSize: 11, fontWeight: 600 }}
+            formatter={labelFormatter}
+            style={BAR_LABEL_TOP_STYLE}
           />
           {selectable &&
             data.map((entry) => (
@@ -78,28 +91,15 @@ function MetricsChart({
                   entry.MES_ANO === selectedKey
                     ? selectedColor
                     : entry.MES_ANO === highlightKey
-                      ? color
+                      ? isValor
+                        ? color
+                        : BRAND[700]
                       : mutedColor
                 }
-                cursor="pointer"
+                cursor={selectable ? "pointer" : undefined}
               />
             ))}
         </Bar>
-        {showItemsSeries && (
-          <Bar
-            dataKey="QTD_ITENS"
-            name="Quantidade Itens"
-            fill="#64748b"
-            radius={[8, 8, 0, 0]}
-          >
-            <LabelList
-              dataKey="QTD_ITENS"
-              position="top"
-              formatter={formatIntCompact}
-              style={{ fill: "#334155", fontSize: 10, fontWeight: 500 }}
-            />
-          </Bar>
-        )}
       </BarChart>
     </ResponsiveContainer>
   );

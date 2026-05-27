@@ -9,6 +9,9 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import { CHART_BAR_ANIMATION, VALUE_AXIS_DOMAIN, chartMountKey } from "./chartAnimation";
+import { BAR_LABEL_TOP_STYLE } from "./chartLabels";
+import { DEFAULT_ACCENT } from "../theme/colors";
 
 const RS_KEY = "RAZÃO SOCIAL";
 
@@ -48,7 +51,7 @@ function ClientesTooltip({ active, payload }) {
   );
 }
 
-function ClientesChart({ ranking, color = "#0d9488", selectedRazao = "", onSelectCliente }) {
+function ClientesChart({ ranking, color = DEFAULT_ACCENT, selectedRazao = "", onSelectCliente }) {
   const chartData = useMemo(() => {
     const sorted = [...(ranking || [])].sort((a, b) => Number(b.VALOR_TOTAL || 0) - Number(a.VALOR_TOTAL || 0));
     return sorted.map((row) => ({
@@ -79,12 +82,13 @@ function ClientesChart({ ranking, color = "#0d9488", selectedRazao = "", onSelec
       <div className="min-h-0 flex-1">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart
+            key={chartMountKey("clientes", selectedRazao, chartData.length)}
             data={chartData}
             layout="vertical"
-            margin={{ top: 4, right: 72, left: 4, bottom: 4 }}
+            margin={{ top: 4, right: 88, left: 4, bottom: 4 }}
             barCategoryGap={6}
           >
-            <XAxis type="number" hide />
+            <XAxis type="number" hide domain={VALUE_AXIS_DOMAIN} />
             <YAxis
               type="category"
               dataKey="nomeCurto"
@@ -93,12 +97,17 @@ function ClientesChart({ ranking, color = "#0d9488", selectedRazao = "", onSelec
               tick={{ fontSize: 10 }}
             />
             <Tooltip content={<ClientesTooltip />} cursor={{ fill: "rgba(148, 163, 184, 0.12)" }} />
-            <Bar dataKey="VALOR_TOTAL" radius={[0, 4, 4, 0]} maxBarSize={22}>
+            <Bar
+              dataKey="VALOR_TOTAL"
+              radius={[0, 4, 4, 0]}
+              maxBarSize={22}
+              {...CHART_BAR_ANIMATION}
+            >
               <LabelList
                 dataKey="VALOR_TOTAL"
                 position="right"
                 formatter={formatBRLCompact}
-                style={{ fill: "#0f172a", fontSize: 10, fontWeight: 600 }}
+                style={{ ...BAR_LABEL_TOP_STYLE, fontSize: 10 }}
               />
               {chartData.map((entry, index) => {
                 const isSel = selectedRazao && entry[RS_KEY] === selectedRazao;

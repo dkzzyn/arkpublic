@@ -1,8 +1,43 @@
 import React from "react";
 
+const LOGO_SRC = `${process.env.PUBLIC_URL || ""}/Logo.png`;
+
+function SidebarLogo({ collapsed }) {
+  if (collapsed) {
+    return (
+      <div
+        className="mx-auto flex h-11 w-11 items-center justify-center overflow-hidden rounded-xl"
+        title="Arklok"
+      >
+        <img
+          src={LOGO_SRC}
+          alt="Arklok"
+          className="h-11 w-auto max-w-none shrink-0 object-cover object-left"
+          draggable={false}
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-2.5">
+      <img
+        src={LOGO_SRC}
+        alt="Arklok — Infinita para você"
+        className="h-auto w-full max-h-[52px] object-contain object-left"
+        draggable={false}
+      />
+      <div className="border-t border-white/10 pt-2">
+        <p className="text-[11px] font-semibold uppercase tracking-wide text-brand-300">ControleExped</p>
+        <p className="mt-0.5 text-[10px] text-neutral-400">Navegue pelos módulos de análise</p>
+      </div>
+    </div>
+  );
+}
+
 function ModuleIcon({ module, active }) {
-  const stroke = active ? "#ffffff" : "#475569";
-  const fill = active ? "rgba(255,255,255,0.18)" : "#f8fafc";
+  const stroke = active ? "#ffffff" : "#991b1b";
+  const fill = active ? "rgba(255,255,255,0.18)" : "#fef2f2";
 
   if (module === "dados") {
     return (
@@ -51,14 +86,14 @@ function Sidebar({
 
   return (
     <aside
-      className={`relative z-[110] flex h-full shrink-0 flex-col overflow-visible border-r border-slate-200 bg-white shadow-sm transition-all duration-300 ${
+      className={`relative z-[110] flex h-full shrink-0 flex-col overflow-visible border-r border-brand-200 bg-white shadow-sm transition-all duration-300 ${
         collapsed ? "w-20" : "w-64"
       }`}
     >
       <button
         type="button"
         onClick={() => setCollapsed((v) => !v)}
-        className="absolute -right-3 top-1/2 z-[120] flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full border border-red-500 bg-red-600 text-white shadow-md hover:bg-red-500"
+        className="absolute -right-3 top-1/2 z-[120] flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full border border-brand-500 bg-brand-600 text-white shadow-md hover:bg-brand-500"
         aria-label={collapsed ? "Expandir sidebar" : "Recolher sidebar"}
         title={collapsed ? "Expandir sidebar" : "Recolher sidebar"}
       >
@@ -73,19 +108,8 @@ function Sidebar({
         </svg>
       </button>
 
-      <div className="border-b border-slate-100 bg-gradient-to-r from-red-50 to-white p-4">
-        {collapsed ? (
-          <div className="mx-auto flex h-9 w-9 items-center justify-center rounded-xl bg-red-100 text-red-600">
-            <svg width="16" height="16" viewBox="0 0 20 20" aria-hidden="true">
-              <path d="M4 16h12M6 13V8m4 5V5m4 8v-3" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-            </svg>
-          </div>
-        ) : (
-          <>
-            <h1 className="text-base font-bold leading-snug tracking-tight text-red-600">Dashboard Expedição</h1>
-            <p className="mt-1 text-[11px] text-slate-500">Navegue pelos módulos de análise</p>
-          </>
-        )}
+      <div className="shrink-0 border-b border-brand-200  p-4">
+        <SidebarLogo collapsed={collapsed} />
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto p-3">
@@ -102,8 +126,8 @@ function Sidebar({
                   onClick={() => onSectionChange(item.value)}
                   className={`group w-full rounded-xl border px-2.5 py-2 text-left transition-all duration-200 ${
                     active
-                      ? "border-red-500 bg-red-600 text-white shadow-sm"
-                      : "border-slate-200 bg-slate-50 text-slate-700 hover:border-slate-300 hover:bg-white"
+                      ? "border-brand-500 bg-brand-600 text-white shadow-sm"
+                      : "border-brand-200 bg-brand-50 text-brand-900 hover:border-brand-300 hover:bg-brand-100"
                   }`}
                   title={item.label}
                 >
@@ -129,7 +153,7 @@ function Sidebar({
         </div>
 
         {!collapsed && section === "faturamento" && (
-          <div className="rounded-xl border border-violet-200 bg-violet-50 p-2.5 text-[11px] text-violet-800">
+          <div className="rounded-xl border border-brand-200 bg-brand-50 p-2.5 text-[11px] text-brand-800">
             NF geradas vs aguardando faturamento por LOCAL.
           </div>
         )}
