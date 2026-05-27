@@ -129,8 +129,8 @@ function Sidebar({
         </div>
 
         {!collapsed && section === "faturamento" && (
-          <div className="rounded-xl border border-dashed border-violet-300 bg-violet-50 p-2.5 text-[11px] text-violet-800">
-            Módulo de faturamento em preparação.
+          <div className="rounded-xl border border-violet-200 bg-violet-50 p-2.5 text-[11px] text-violet-800">
+            NF geradas vs aguardando faturamento por LOCAL.
           </div>
         )}
         </div>

@@ -4,9 +4,9 @@ import Sidebar from "./Sidebar";
 import KpiCard from "./KpiCard";
 import MetricsChart from "./MetricsChart";
 import DailyLineChart from "./DailyLineChart";
-import AnnualItemsChart from "./AnnualItemsChart";
 import ClientesChart from "./ClientesChart";
 import ClienteFatiaChart from "./ClienteFatiaChart";
+import Faturamento from "./Faturamento";
 
 const api = axios.create({
   baseURL: process.env.REACT_APP_API_URL || "http://localhost:8000",
@@ -131,7 +131,7 @@ function Dashboard() {
         err?.response?.data?.detail ||
         (err?.request
           ? "Nao foi possivel conectar na API. Inicie o backend FastAPI em http://localhost:8000."
-          : "Falha no upload do CSV.");
+          : "Falha no upload do arquivo de expedição.");
       setError(String(detail));
     } finally {
       setIsLoading(false);
@@ -140,8 +140,28 @@ function Dashboard() {
   };
 
   const handleUploadFaturamento = async (event) => {
-    setError("Upload da base de faturamento ainda não foi implantado.");
-    if (event?.target) event.target.value = "";
+    const file = event.target.files?.[0];
+    if (!file) return;
+    setIsLoading(true);
+    setError("");
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      await api.post("/faturamento/upload", formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+      setSection("faturamento");
+    } catch (err) {
+      const detail =
+        err?.response?.data?.detail ||
+        (err?.request
+          ? "Nao foi possivel conectar na API. Inicie o backend FastAPI em http://localhost:8000."
+          : "Falha no upload do arquivo de faturamento.");
+      setError(String(detail));
+    } finally {
+      setIsLoading(false);
+      event.target.value = "";
+    }
   };
 
   useEffect(() => {
@@ -549,8 +569,8 @@ function Dashboard() {
                     <path d="M12 15V9m0 0-2 2m2-2 2 2" stroke="#2563eb" strokeWidth="1.8" strokeLinecap="round" />
                   </svg>
                   <p className="text-sm font-medium text-slate-800">Arraste seus arquivos aqui ou clique para selecionar</p>
-                  <p className="text-xs text-slate-500">Upload da base de expedição (.csv)</p>
-                  <input type="file" accept=".csv" className="hidden" onChange={handleUpload} />
+                  <p className="text-xs text-slate-500">Upload da base de expedição (.xlsx ou .csv)</p>
+                  <input type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={handleUpload} />
                 </label>
 
                 <label className="flex min-h-[220px] cursor-pointer flex-col items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white p-3 text-center shadow-sm hover:bg-slate-50">
@@ -560,20 +580,18 @@ function Dashboard() {
                     <path d="M12 15V9m0 0-2 2m2-2 2 2" stroke="#2563eb" strokeWidth="1.8" strokeLinecap="round" />
                   </svg>
                   <p className="text-sm font-medium text-slate-800">Arraste seus arquivos aqui ou clique para selecionar</p>
-                  <p className="text-xs text-slate-500">Upload da base de faturamento (.csv)</p>
-                  <input type="file" accept=".csv" className="hidden" onChange={handleUploadFaturamento} />
+                  <p className="text-xs text-slate-500">Upload da base de faturamento (.xlsx ou .csv)</p>
+                  <input
+                    type="file"
+                    accept=".xlsx,.xls,.csv"
+                    className="hidden"
+                    onChange={handleUploadFaturamento}
+                  />
                 </label>
               </div>
             </div>
           ) : section === "faturamento" ? (
-            <div className="flex min-h-0 flex-1 items-center justify-center rounded-xl border border-dashed border-violet-300 bg-violet-50/50 p-4">
-              <div className="max-w-xl text-center">
-                <p className="text-base font-semibold text-violet-900">Módulo Faturamento</p>
-                <p className="mt-1 text-sm text-violet-800">
-                  Essa área já está preparada no menu e será integrada assim que a base de faturamento estiver pronta.
-                </p>
-              </div>
-            </div>
+            <Faturamento api={api} />
           ) : section === "clientes" ? (
             <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-hidden">
               <div className="shrink-0 grid grid-cols-12 gap-2">
@@ -796,11 +814,8 @@ function Dashboard() {
                 <div className="col-span-6 sm:col-span-3 lg:col-span-2">
                   <KpiCard title="NF no período" value={totals.nf} accentColor={meta.color} compact />
                 </div>
-                <div className="col-span-6 sm:col-span-3 lg:col-span-2">
-                  <KpiCard title="Itens no período" value={totals.itens} accentColor={meta.color} compact />
-                </div>
 
-                <div className="col-span-6 sm:col-span-3 lg:col-span-2">
+                <div className="col-span-6 sm:col-span-6 lg:col-span-4">
                   <KpiCard
                     title="Crescimento mensal"
                     value={crescimento ?? 0}
@@ -812,58 +827,35 @@ function Dashboard() {
                 </div>
               </div>
 
-              <div className="grid min-h-0 flex-1 gap-2 [grid-template-rows:minmax(0,1fr)_minmax(0,1fr)]">
-                {mode === "anual" ? (
-                  <>
-                    <div className="flex min-h-0 min-w-0 flex-col gap-1 rounded-xl border border-slate-200 bg-white p-2 shadow-sm">
-                      <p className="shrink-0 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-                        Valor (R$) por mês
-                      </p>
-                      <div className="min-h-0 flex-1">
-                        <MetricsChart
-                          data={chartData}
-                          xKey={xKey}
-                          color={meta.color}
-                          showItemsSeries={false}
-                          selectable={false}
-                          selectedKey=""
-                          highlightKey=""
-                          onSelect={undefined}
-                        />
-                      </div>
-                    </div>
-                    <div className="flex min-h-0 min-w-0 flex-col gap-1 rounded-xl border border-slate-200 bg-white p-2 shadow-sm">
-                      <p className="shrink-0 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-                        Quantidade de itens por mês
-                      </p>
-                      <div className="min-h-0 flex-1">
-                        <AnnualItemsChart data={chartData} accentColor={meta.color} />
-                      </div>
-                    </div>
-                  </>
-                ) : (
-                  <div className="flex min-h-0 min-w-0 flex-col rounded-xl border border-slate-200 bg-white p-2 shadow-sm">
-                    <div className="min-h-0 flex-1">
-                      <MetricsChart
-                        data={chartData}
-                        xKey={xKey}
-                        color={meta.color}
-                        showItemsSeries={false}
-                        selectable={mode === "mensal"}
-                        selectedKey={selectedMonth}
-                        highlightKey={monthOptions[monthOptions.length - 1] || ""}
-                        onSelect={setSelectedMonth}
-                      />
-                    </div>
+              <div
+                className={`grid min-h-0 flex-1 gap-2 ${
+                  mode === "anual"
+                    ? "[grid-template-rows:minmax(0,1fr)]"
+                    : "[grid-template-rows:minmax(0,1fr)_minmax(0,1fr)]"
+                }`}
+              >
+                <div className="flex min-h-0 min-w-0 flex-col gap-1 rounded-xl border border-slate-200 bg-white p-2 shadow-sm">
+                  <p className="shrink-0 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                    Valor (R$) por mês
+                  </p>
+                  <div className="min-h-0 flex-1">
+                    <MetricsChart
+                      data={chartData}
+                      xKey={xKey}
+                      color={meta.color}
+                      showItemsSeries={false}
+                      selectable={mode === "mensal"}
+                      selectedKey={selectedMonth}
+                      highlightKey={monthOptions[monthOptions.length - 1] || ""}
+                      onSelect={mode === "mensal" ? setSelectedMonth : undefined}
+                    />
                   </div>
-                )}
+                </div>
 
                 {mode === "mensal" && (
-                  <div className="grid min-h-0 min-w-0 flex-1 grid-cols-1 gap-2">
-                    <div className="flex min-h-0 min-w-0 flex-col rounded-xl border border-slate-200 bg-white p-2 shadow-sm">
-                      <div className="min-h-0 flex-1">
-                        <DailyLineChart data={dailyData} color={meta.color} />
-                      </div>
+                  <div className="flex min-h-0 min-w-0 flex-col rounded-xl border border-slate-200 bg-white p-2 shadow-sm">
+                    <div className="min-h-0 flex-1">
+                      <DailyLineChart data={dailyData} color={meta.color} />
                     </div>
                   </div>
                 )}

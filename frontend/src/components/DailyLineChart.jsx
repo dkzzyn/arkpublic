@@ -1,7 +1,7 @@
 import React from "react";
 import {
   CartesianGrid,
-  Legend,
+  LabelList,
   Line,
   LineChart,
   ResponsiveContainer,
@@ -18,52 +18,46 @@ function formatBRL(value) {
   });
 }
 
-function tooltipFormatter(value, name) {
-  if (name === "Valor Total") return formatBRL(value);
-  return Number(value || 0).toLocaleString("pt-BR");
+function formatBRLCompact(value) {
+  const n = Number(value || 0);
+  if (n >= 1_000_000) return `R$ ${(n / 1_000_000).toFixed(1)} mi`;
+  if (n >= 1_000) return `R$ ${(n / 1_000).toFixed(1)} mil`;
+  return `R$ ${n.toFixed(0)}`;
+}
+
+function tooltipFormatter(value) {
+  return formatBRL(value);
 }
 
 function DailyLineChart({ data, color = "#dc2626", domainFromZero = false }) {
   const yAxisExtra = domainFromZero ? { domain: [0, "auto"] } : {};
+  const showLabels = (data || []).length <= 31;
+
   return (
     <ResponsiveContainer width="100%" height="100%">
-      <LineChart data={data} margin={{ top: 8, right: 12, left: 8, bottom: 8 }}>
+      <LineChart data={data} margin={{ top: 24, right: 12, left: 8, bottom: 8 }}>
         <CartesianGrid strokeDasharray="2 6" stroke="#e2e8f0" vertical={false} />
-        <XAxis dataKey="DIA_LABEL" stroke="#64748b" />
-        <YAxis
-          yAxisId="valor"
-          stroke="#64748b"
-          tickFormatter={(value) => `R$ ${Number(value).toLocaleString("pt-BR")}`}
-          {...yAxisExtra}
-        />
-        <YAxis
-          yAxisId="itens"
-          orientation="right"
-          stroke="#94a3b8"
-          tickFormatter={(value) => Number(value).toLocaleString("pt-BR")}
-          {...yAxisExtra}
-        />
+        <XAxis dataKey="DIA_LABEL" stroke="#64748b" interval="preserveStartEnd" />
+        <YAxis hide {...yAxisExtra} />
         <Tooltip formatter={tooltipFormatter} />
-        <Legend />
         <Line
-          yAxisId="valor"
           type="monotone"
           dataKey="VALOR_TOTAL"
           name="Valor Total"
           stroke={color}
           strokeWidth={2.6}
-          dot={false}
-        />
-        <Line
-          yAxisId="itens"
-          type="monotone"
-          dataKey="QTD_ITENS"
-          name="Quantidade Itens"
-          stroke="#334155"
-          strokeWidth={1.6}
-          strokeOpacity={0.75}
-          dot={false}
-        />
+          dot={{ r: 3, fill: color }}
+          activeDot={{ r: 5 }}
+        >
+          {showLabels && (
+            <LabelList
+              dataKey="VALOR_TOTAL"
+              position="top"
+              formatter={formatBRLCompact}
+              style={{ fill: "#0f172a", fontSize: 10, fontWeight: 600 }}
+            />
+          )}
+        </Line>
       </LineChart>
     </ResponsiveContainer>
   );

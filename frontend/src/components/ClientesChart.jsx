@@ -2,8 +2,8 @@ import React, { useMemo } from "react";
 import {
   Bar,
   BarChart,
-  CartesianGrid,
   Cell,
+  LabelList,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -18,6 +18,13 @@ function formatBRL(value) {
     currency: "BRL",
     minimumFractionDigits: 2,
   });
+}
+
+function formatBRLCompact(value) {
+  const n = Number(value || 0);
+  if (n >= 1_000_000) return `R$ ${(n / 1_000_000).toFixed(1)} mi`;
+  if (n >= 1_000) return `R$ ${(n / 1_000).toFixed(1)} mil`;
+  return `R$ ${n.toFixed(0)}`;
 }
 
 function truncate(str, max) {
@@ -74,17 +81,10 @@ function ClientesChart({ ranking, color = "#0d9488", selectedRazao = "", onSelec
           <BarChart
             data={chartData}
             layout="vertical"
-            margin={{ top: 4, right: 16, left: 4, bottom: 4 }}
+            margin={{ top: 4, right: 72, left: 4, bottom: 4 }}
             barCategoryGap={6}
           >
-            <CartesianGrid strokeDasharray="2 6" stroke="#e2e8f0" horizontal={false} />
-            <XAxis
-              type="number"
-              stroke="#64748b"
-              tickFormatter={(v) =>
-                Number(v).toLocaleString("pt-BR", { notation: v >= 1e6 ? "compact" : "standard", maximumFractionDigits: 0 })
-              }
-            />
+            <XAxis type="number" hide />
             <YAxis
               type="category"
               dataKey="nomeCurto"
@@ -94,6 +94,12 @@ function ClientesChart({ ranking, color = "#0d9488", selectedRazao = "", onSelec
             />
             <Tooltip content={<ClientesTooltip />} cursor={{ fill: "rgba(148, 163, 184, 0.12)" }} />
             <Bar dataKey="VALOR_TOTAL" radius={[0, 4, 4, 0]} maxBarSize={22}>
+              <LabelList
+                dataKey="VALOR_TOTAL"
+                position="right"
+                formatter={formatBRLCompact}
+                style={{ fill: "#0f172a", fontSize: 10, fontWeight: 600 }}
+              />
               {chartData.map((entry, index) => {
                 const isSel = selectedRazao && entry[RS_KEY] === selectedRazao;
                 const isLeader = index === topIdx;

@@ -1,4 +1,4 @@
-from io import StringIO
+from io import BytesIO, StringIO
 from typing import Any
 
 import pandas as pd
@@ -39,8 +39,33 @@ REQUIRED_COLUMNS = {
     "#QuantidadeExpedida",
 }
 CSV_ENCODINGS = ("utf-8-sig", "utf-8", "cp1252", "latin-1")
-# Limite de upload (CSV em memoria) — evita DoS por ficheiros enormes.
+ALLOWED_UPLOAD_EXTS = (".xlsx", ".xls", ".csv")
+# Limite de upload (arquivo em memoria) — evita DoS por ficheiros enormes.
 MAX_UPLOAD_BYTES = 80 * 1024 * 1024
+
+
+def _read_tabular_file(filename: str, contents: bytes) -> pd.DataFrame:
+    name = (filename or "").lower()
+    if name.endswith((".xlsx", ".xls")):
+        try:
+            return pd.read_excel(BytesIO(contents), engine="openpyxl")
+        except Exception as exc:
+            raise HTTPException(status_code=400, detail=f"Falha ao ler o Excel: {exc}") from exc
+
+    if name.endswith(".csv"):
+        last_error: Exception | None = None
+        for encoding in CSV_ENCODINGS:
+            try:
+                return pd.read_csv(StringIO(contents.decode(encoding)), sep=None, engine="python")
+            except Exception as exc:
+                last_error = exc
+        raise HTTPException(
+            status_code=400,
+            detail="Falha ao ler CSV. Tente salvar em UTF-8, ANSI ou Latin-1.",
+        ) from last_error
+
+    exts = ", ".join(ALLOWED_UPLOAD_EXTS)
+    raise HTTPException(status_code=400, detail=f"Envie um arquivo {exts}.")
 
 
 def _load_dataframe() -> pd.DataFrame:
@@ -48,7 +73,7 @@ def _load_dataframe() -> pd.DataFrame:
     if df is None or df.empty:
         raise HTTPException(
             status_code=400,
-            detail="Nenhum CSV processado. Envie um arquivo em /upload primeiro.",
+            detail="Nenhum arquivo processado. Envie um arquivo em /upload primeiro.",
         )
     return df
 
@@ -178,8 +203,10 @@ async def healthcheck():
 
 @app.post("/upload")
 async def upload_csv(file: UploadFile = File(...)):
-    if not file.filename.lower().endswith(".csv"):
-        raise HTTPException(status_code=400, detail="Envie um arquivo CSV.")
+    filename = file.filename or ""
+    if not filename.lower().endswith(ALLOWED_UPLOAD_EXTS):
+        exts = ", ".join(ALLOWED_UPLOAD_EXTS)
+        raise HTTPException(status_code=400, detail=f"Envie um arquivo {exts}.")
 
     contents = await file.read()
     if len(contents) > MAX_UPLOAD_BYTES:
@@ -188,24 +215,7 @@ async def upload_csv(file: UploadFile = File(...)):
             detail=f"Arquivo muito grande. Limite: {MAX_UPLOAD_BYTES // (1024 * 1024)} MB.",
         )
 
-    df = None
-    last_error: Exception | None = None
-    for encoding in CSV_ENCODINGS:
-        try:
-            decoded = contents.decode(encoding)
-            df = pd.read_csv(StringIO(decoded), sep=None, engine="python")
-            break
-        except Exception as exc:  # try next encoding
-            last_error = exc
-
-    if df is None:
-        raise HTTPException(
-            status_code=400,
-            detail=(
-                "Falha ao ler o CSV. Tente salvar o arquivo em UTF-8, ANSI ou Latin-1 "
-                "e verifique se o separador esta correto."
-            ),
-        ) from last_error
+    df = _read_tabular_file(filename, contents)
 
     missing_columns = REQUIRED_COLUMNS - set(df.columns)
     if missing_columns:
@@ -427,4 +437,241 @@ async def get_impressoras(desc_grupo: str | None = Query(default=None)):
         "anual": _format_records(anual),
         "diario": _format_records(diario),
         "filtros": {"desc_grupo": grupo_options},
+    }
+
+
+# =============================================================================
+# MODULO FATURAMENTO
+# Base: planilha data.xlsx (FILA_ORDEM, LOCAL, DATA_EMISSAO_NF, R$PROJETO, ...).
+# Lida com a contagem de NF GERADA (17) vs AGUARDANDO FATURAMENTO (16) e
+# segmenta por LOCAL (NOVO 01 / SEMI NOVO 04 / SUSTENTACAO 08).
+# =============================================================================
+
+FATURAMENTO_STORE: dict[str, pd.DataFrame | None] = {"df": None}
+FATURAMENTO_REQUIRED_COLUMNS = {"FILA_ORDEM", "LOCAL", "DATA_EMISSAO_NF", "R$PROJETO"}
+
+# Map de filtro (frontend → categorias internas).
+_FAT_LOCAL_FILTER = {
+    "implantacao": ("NOVO", "SEMI_NOVO"),
+    "implantação": ("NOVO", "SEMI_NOVO"),
+    "sustentacao": ("SUSTENTACAO",),
+    "sustentação": ("SUSTENTACAO",),
+}
+_FAT_LOCAL_ALVO = ("NOVO", "SEMI_NOVO", "SUSTENTACAO")
+_FAT_LOCAL_LABELS = {
+    "IMPLANTACAO": "Implantação",
+    "SUSTENTACAO": "Sustentação",
+}
+
+
+def _fat_scope_by_local(df: pd.DataFrame, filt: str) -> pd.DataFrame:
+    if filt in _FAT_LOCAL_FILTER:
+        cats = _FAT_LOCAL_FILTER[filt]
+        return df[df["LOCAL_CAT"].isin(cats)].copy()
+    return df[df["LOCAL_CAT"].isin(_FAT_LOCAL_ALVO)].copy()
+
+
+def _fat_categorize_local(series: pd.Series) -> pd.Series:
+    upper = series.fillna("").astype(str).str.upper()
+    out = pd.Series("OUTROS", index=series.index, dtype="object")
+    out.loc[upper.str.contains("SEMI", na=False) & upper.str.contains("NOVO", na=False)] = "SEMI_NOVO"
+    out.loc[upper.str.contains(r"\bNOVO\b", na=False, regex=True) & ~upper.str.contains("SEMI", na=False)] = "NOVO"
+    out.loc[upper.str.contains("SUSTENTA", na=False)] = "SUSTENTACAO"
+    return out
+
+
+def _fat_categorize_fila(series: pd.Series) -> pd.Series:
+    upper = series.fillna("").astype(str).str.upper()
+    out = pd.Series("OUTROS", index=series.index, dtype="object")
+    out.loc[upper.str.contains("NF GERADA", na=False)] = "NF_GERADA"
+    out.loc[upper.str.contains("AGUARDANDO FATURAMENTO", na=False)] = "AGUARDANDO"
+    return out
+
+
+def _fat_read_dataframe(filename: str, contents: bytes) -> pd.DataFrame:
+    return _read_tabular_file(filename, contents)
+
+
+def _load_faturamento_df() -> pd.DataFrame:
+    df = FATURAMENTO_STORE["df"]
+    if df is None or df.empty:
+        raise HTTPException(
+            status_code=400,
+            detail="Nenhum arquivo de faturamento processado. Envie um arquivo em /faturamento/upload.",
+        )
+    return df
+
+
+def _fat_format_records(rows: pd.DataFrame) -> list[dict[str, Any]]:
+    records = rows.to_dict(orient="records")
+    for row in records:
+        if "VALOR_TOTAL" in row:
+            row["VALOR_TOTAL"] = float(round(row.get("VALOR_TOTAL", 0.0), 2))
+        if "QTD_GERADAS" in row:
+            row["QTD_GERADAS"] = int(row.get("QTD_GERADAS", 0))
+        if "QTD_AGUARDANDO" in row:
+            row["QTD_AGUARDANDO"] = int(row.get("QTD_AGUARDANDO", 0))
+    return records
+
+
+@app.post("/faturamento/upload")
+async def upload_faturamento(file: UploadFile = File(...)):
+    filename = file.filename or ""
+    if not filename.lower().endswith(ALLOWED_UPLOAD_EXTS):
+        exts = ", ".join(ALLOWED_UPLOAD_EXTS)
+        raise HTTPException(status_code=400, detail=f"Envie um arquivo {exts}.")
+
+    contents = await file.read()
+    if len(contents) > MAX_UPLOAD_BYTES:
+        raise HTTPException(
+            status_code=413,
+            detail=f"Arquivo muito grande. Limite: {MAX_UPLOAD_BYTES // (1024 * 1024)} MB.",
+        )
+
+    df = _fat_read_dataframe(filename, contents)
+
+    missing = FATURAMENTO_REQUIRED_COLUMNS - set(df.columns)
+    if missing:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Colunas obrigatorias ausentes: {', '.join(sorted(missing))}",
+        )
+
+    df["FILA_CAT"] = _fat_categorize_fila(df["FILA_ORDEM"])
+    df["LOCAL_CAT"] = _fat_categorize_local(df["LOCAL"])
+    df["DATA_EMISSAO_NF"] = pd.to_datetime(df["DATA_EMISSAO_NF"], errors="coerce")
+    df["VALOR"] = pd.to_numeric(df["R$PROJETO"], errors="coerce").fillna(0.0)
+    df["ANO"] = df["DATA_EMISSAO_NF"].dt.year.astype("Int64")
+    df["MES"] = df["DATA_EMISSAO_NF"].dt.month.astype("Int64")
+    df["DIA"] = df["DATA_EMISSAO_NF"].dt.day.astype("Int64")
+
+    FATURAMENTO_STORE["df"] = df
+
+    return {
+        "status": "processed",
+        "rows": int(len(df)),
+        "fila": {k: int(v) for k, v in df["FILA_CAT"].value_counts(dropna=False).to_dict().items()},
+        "locais": {k: int(v) for k, v in df["LOCAL_CAT"].value_counts(dropna=False).to_dict().items()},
+    }
+
+
+@app.get("/faturamento")
+async def get_faturamento(local: str | None = Query(default=None)):
+    df = _load_faturamento_df()
+
+    filt = (local or "todos").strip().lower()
+    scoped = _fat_scope_by_local(df, filt)
+
+    geradas = scoped[scoped["FILA_CAT"] == "NF_GERADA"]
+    aguardando = scoped[scoped["FILA_CAT"] == "AGUARDANDO"]
+
+    if "NF" in scoped.columns:
+        qtd_geradas = int(geradas["NF"].dropna().nunique())
+    else:
+        qtd_geradas = int(len(geradas))
+    qtd_aguardando = int(len(aguardando))
+    valor_total = float(scoped["VALOR"].sum())
+    valor_geradas = float(geradas["VALOR"].sum())
+    valor_aguardando = float(aguardando["VALOR"].sum())
+
+    # Serie mensal (apenas para NF GERADA, que tem data de emissao).
+    dated = geradas.dropna(subset=["ANO", "MES"]).copy()
+    if "NF" in dated.columns:
+        mensal_agg = (
+            dated.groupby(["ANO", "MES"], dropna=False)
+            .agg(VALOR_TOTAL=("VALOR", "sum"), QTD_GERADAS=("NF", "nunique"))
+            .reset_index()
+        )
+    else:
+        mensal_agg = (
+            dated.groupby(["ANO", "MES"], dropna=False)
+            .agg(VALOR_TOTAL=("VALOR", "sum"), QTD_GERADAS=("VALOR", "count"))
+            .reset_index()
+        )
+    mensal_agg["ANO"] = mensal_agg["ANO"].astype("Int64")
+    mensal_agg["MES"] = mensal_agg["MES"].astype("Int64")
+    mensal_agg = mensal_agg.sort_values(["ANO", "MES"]).reset_index(drop=True)
+    mensal_agg["MES_ANO"] = (
+        mensal_agg["ANO"].astype(str)
+        + "-"
+        + mensal_agg["MES"].astype(int).astype(str).str.zfill(2)
+    )
+    mensal_agg["ANO"] = mensal_agg["ANO"].astype(int)
+    mensal_agg["MES"] = mensal_agg["MES"].astype(int)
+
+    # Anual.
+    anual_agg = mensal_agg.groupby("ANO", dropna=False).agg(
+        VALOR_TOTAL=("VALOR_TOTAL", "sum"),
+        QTD_GERADAS=("QTD_GERADAS", "sum"),
+    ).reset_index()
+
+    # Serie diaria (NF GERADA com DATA_EMISSAO_NF valida).
+    diary = geradas.dropna(subset=["DATA_EMISSAO_NF"]).copy()
+    if not diary.empty:
+        diary["ANO"] = diary["DATA_EMISSAO_NF"].dt.year.astype(int)
+        diary["MES"] = diary["DATA_EMISSAO_NF"].dt.month.astype(int)
+        diary["DIA"] = diary["DATA_EMISSAO_NF"].dt.day.astype(int)
+        diary["DATA"] = diary["DATA_EMISSAO_NF"].dt.strftime("%Y-%m-%d")
+        if "NF" in diary.columns:
+            diario_agg = (
+                diary.groupby(["DATA", "ANO", "MES", "DIA"], dropna=False)
+                .agg(VALOR_TOTAL=("VALOR", "sum"), QTD_GERADAS=("NF", "nunique"))
+                .reset_index()
+            )
+        else:
+            diario_agg = (
+                diary.groupby(["DATA", "ANO", "MES", "DIA"], dropna=False)
+                .agg(VALOR_TOTAL=("VALOR", "sum"), QTD_GERADAS=("VALOR", "count"))
+                .reset_index()
+            )
+        diario_agg = diario_agg.sort_values("DATA").reset_index(drop=True)
+        diario_agg["MES_ANO"] = (
+            diario_agg["ANO"].astype(str)
+            + "-"
+            + diario_agg["MES"].astype(int).astype(str).str.zfill(2)
+        )
+        diario_records = _fat_format_records(diario_agg)
+    else:
+        diario_records = []
+
+    # Por LOCAL (Implantação = Novo + Semi novo; Sustentação).
+    target_df = df[df["LOCAL_CAT"].isin(_FAT_LOCAL_ALVO)]
+    por_local_groups = (
+        ("IMPLANTACAO", ("NOVO", "SEMI_NOVO")),
+        ("SUSTENTACAO", ("SUSTENTACAO",)),
+    )
+    por_local_records: list[dict[str, Any]] = []
+    for cat, cats in por_local_groups:
+        sub = target_df[target_df["LOCAL_CAT"].isin(cats)]
+        sub_ger = sub[sub["FILA_CAT"] == "NF_GERADA"]
+        sub_agu = sub[sub["FILA_CAT"] == "AGUARDANDO"]
+        if "NF" in sub.columns:
+            qtd_g = int(sub_ger["NF"].dropna().nunique())
+        else:
+            qtd_g = int(len(sub_ger))
+        por_local_records.append(
+            {
+                "LOCAL": cat,
+                "LOCAL_LABEL": _FAT_LOCAL_LABELS[cat],
+                "VALOR_TOTAL": float(round(sub["VALOR"].sum(), 2)),
+                "QTD_GERADAS": qtd_g,
+                "QTD_AGUARDANDO": int(len(sub_agu)),
+            }
+        )
+
+    return {
+        "filtro_local": filt if filt in _FAT_LOCAL_FILTER else "todos",
+        "totais": {
+            "VALOR_TOTAL": float(round(valor_total, 2)),
+            "VALOR_GERADAS": float(round(valor_geradas, 2)),
+            "VALOR_AGUARDANDO": float(round(valor_aguardando, 2)),
+            "QTD_GERADAS": qtd_geradas,
+            "QTD_AGUARDANDO": qtd_aguardando,
+            "QTD_TOTAL": qtd_geradas + qtd_aguardando,
+        },
+        "mensal": _fat_format_records(mensal_agg),
+        "anual": _fat_format_records(anual_agg),
+        "diario": diario_records,
+        "por_local": por_local_records,
+        "filtros": {"locais": ["todos", "implantacao", "sustentacao"]},
     }
