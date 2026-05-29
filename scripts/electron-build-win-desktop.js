@@ -19,6 +19,14 @@ if (assertVenv.status !== 0) {
   process.exit(assertVenv.status ?? 1);
 }
 
+const preparePack = spawnSync(process.execPath, [path.join(__dirname, "prepare-backend-windows-pack.js")], {
+  cwd: root,
+  stdio: "inherit",
+});
+if (preparePack.status !== 0) {
+  process.exit(preparePack.status ?? 1);
+}
+
 function resolveDesktopDir() {
   const home = os.homedir();
   const candidates = [

@@ -17,7 +17,7 @@
     "electron:dist": "npm run frontend:build && electron-builder",
     "electron:dist:mac": "npm run frontend:build && electron-builder --mac",
     "electron:dist:linux": "npm run frontend:build && electron-builder --linux",
-    "electron:dist:win": "node scripts/assert-backend-windows-venv.js && npm run frontend:build && electron-builder --win",
+    "electron:dist:win": "node scripts/assert-backend-windows-venv.js && node scripts/prepare-backend-windows-pack.js && npm run frontend:build && electron-builder --win",
     "electron:dist:win-desktop": "node scripts/electron-build-win-desktop.js",
     "start:windows": "node scripts/electron-build-win-desktop.js",
     "tauri": "tauri",
@@ -53,7 +53,7 @@
     "icon": "frontend/public/image.png",
     "extraResources": [
       {
-        "from": "backend",
+        "from": "build/backend-pack",
         "to": "backend",
         "filter": [
           "**/*",
@@ -96,6 +96,8 @@
       "allowToChangeInstallationDirectory": true,
       "allowElevation": false,
       "perMachine": false,
+      "packElevateHelper": false,
+      "differentialPackage": false,
       "installerIcon": "src-tauri/icons/icon.ico",
       "uninstallerIcon": "src-tauri/icons/icon.ico",
       "include": "electron/installer.nsh",

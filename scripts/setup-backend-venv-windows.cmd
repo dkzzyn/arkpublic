@@ -11,9 +11,9 @@ echo.
 echo === A criar novo venv (.venv) ===
 where py >nul 2>&1
 if %errorlevel% equ 0 (
-  py -m venv .venv
+  py -m venv --copies .venv
 ) else (
-  python -m venv .venv
+  python -m venv --copies .venv
 )
 if not exist ".venv\Scripts\python.exe" (
   echo ERRO: nao foi criado .venv\Scripts\python.exe. Instale Python 3 de python.org e marque "Add to PATH", ou use: py -m venv .venv

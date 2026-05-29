@@ -36,9 +36,12 @@ jobs:
         shell: cmd
         run: |
           cd backend
-          python -m venv .venv
+          python -m venv --copies .venv
           .venv\Scripts\python.exe -m pip install --upgrade pip
           .venv\Scripts\pip.exe install -r requirements.txt
+
+      - name: Preparar backend sem symlinks para o instalador
+        run: node scripts/prepare-backend-windows-pack.js
 
       - name: Gerar instalador NSIS (.exe)
         run: npm run electron:dist:win
