@@ -23,28 +23,16 @@ jobs:
           cache: npm
           cache-dependency-path: w/package-lock.json
 
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-
       - name: Instalar dependências Node (raiz + frontend)
         run: |
           npm install
           npm --prefix ./frontend install
 
-      - name: Criar venv Windows e instalar backend
-        shell: cmd
-        run: |
-          cd backend
-          python -m venv --copies .venv
-          .venv\Scripts\python.exe -m pip install --upgrade pip
-          .venv\Scripts\pip.exe install -r requirements.txt
-
-      - name: Preparar backend sem symlinks para o instalador
-        run: node scripts/prepare-backend-windows-pack.js
+      - name: Preparar backend portátil (Python embeddable + deps)
+        run: node scripts/setup-backend-runtime-windows.js
 
       - name: Gerar instalador NSIS (.exe)
-        run: npm run electron:dist:win
+        run: npm run frontend:build && npx electron-builder --win
 
       - name: Upload do instalador
         uses: actions/upload-artifact@v4

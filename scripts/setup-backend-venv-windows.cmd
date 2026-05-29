@@ -32,6 +32,7 @@ if %errorlevel% neq 0 (
 )
 
 echo.
-echo === Concluido. Na raiz do projeto corra: npm run electron:dist:win ===
+echo === Concluido (venv para desenvolvimento local: npm run dev / electron:start) ===
+echo === Para gerar o instalador .exe use na raiz: npm run electron:dist:win ===
 echo.
 pause

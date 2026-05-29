@@ -52,6 +52,13 @@ function getBackendDir() {
 
 const appIconPath = path.join(getAppContentRoot(), "frontend", "public", "image.png");
 
+function getExpectedRuntimePythonPath(backendCwd) {
+  if (process.platform === "win32") {
+    return path.join(backendCwd, "runtime", "python.exe");
+  }
+  return null;
+}
+
 function getExpectedVenvPythonPath(backendCwd) {
   if (process.platform === "win32") {
     return path.join(backendCwd, ".venv", "Scripts", "python.exe");
@@ -63,25 +70,83 @@ function getExpectedVenvPythonPath(backendCwd) {
 function explainWrongPlatformVenv(backendCwd) {
   const macVenvPython = path.join(backendCwd, ".venv", "bin", "python");
   const winVenvPython = path.join(backendCwd, ".venv", "Scripts", "python.exe");
-  if (process.platform === "win32" && fs.existsSync(macVenvPython) && !fs.existsSync(winVenvPython)) {
+  const runtimePython = getExpectedRuntimePythonPath(backendCwd);
+  if (
+    process.platform === "win32" &&
+    fs.existsSync(macVenvPython) &&
+    !fs.existsSync(winVenvPython) &&
+    !(runtimePython && fs.existsSync(runtimePython))
+  ) {
     return (
       "\n\nO instalador foi gerado com o Python do macOS dentro de backend/.venv.\n" +
       "No Windows isso não funciona (ENOENT em python.exe).\n\n" +
-      "Solução: no PC Windows execute scripts\\setup-backend-venv-windows.cmd (na raiz do repo),\n" +
-      "ou manualmente: cd backend, apague .venv, python -m venv .venv, .venv\\Scripts\\pip install -r requirements.txt, cd .., npm run electron:dist:win.\n" +
-      "Em Mac use o GitHub Actions \"Electron Windows (.exe)\" para gerar o .exe.\n"
+      "Solução: gere o instalador de novo com:\n" +
+      "  npm run electron:dist:win\n" +
+      "(usa Python embeddable portátil, sem depender do Python do cliente).\n"
     );
   }
   return "";
+}
+
+function getBackendLogPath() {
+  try {
+    return path.join(app.getPath("userData"), "backend.log");
+  } catch {
+    return null;
+  }
+}
+
+function appendBackendLog(text) {
+  const logPath = getBackendLogPath();
+  if (!logPath) return;
+  try {
+    fs.mkdirSync(path.dirname(logPath), { recursive: true });
+    fs.appendFileSync(logPath, text, "utf8");
+  } catch {
+    /* ignore */
+  }
+}
+
+function readBackendLogTail(maxLines = 24) {
+  const logPath = getBackendLogPath();
+  if (!logPath || !fs.existsSync(logPath)) return "";
+  try {
+    const lines = fs.readFileSync(logPath, "utf8").split(/\r?\n/).filter(Boolean);
+    if (lines.length === 0) return "";
+    return `\n\nÚltimas linhas do log (${logPath}):\n${lines.slice(-maxLines).join("\n")}`;
+  } catch {
+    return "";
+  }
+}
+
+async function waitForBackendHealth(timeoutMs = 20000) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    try {
+      const res = await fetch("http://127.0.0.1:8000/health");
+      if (res.ok) return true;
+    } catch {
+      /* retry */
+    }
+    await new Promise((r) => setTimeout(r, 250));
+  }
+  return false;
 }
 
 function getBackendPythonPath() {
   return getExpectedVenvPythonPath(getBackendDir());
 }
 
-/** Em dev, se não houver .venv, tenta python do sistema. Empacotado: só venv (deve existir no pacote). */
+/** Em dev, se não houver .venv, tenta python do sistema. Empacotado: runtime portátil ou venv. */
 function resolvePythonAndCwd() {
   const backendCwd = path.resolve(getBackendDir());
+  const runtimePyPath = getExpectedRuntimePythonPath(backendCwd);
+  if (runtimePyPath) {
+    const runtimePy = path.resolve(runtimePyPath);
+    if (fs.existsSync(runtimePy)) {
+      return { pythonPath: runtimePy, backendCwd, mode: "runtime" };
+    }
+  }
   const venvPy = path.resolve(getExpectedVenvPythonPath(backendCwd));
   if (fs.existsSync(venvPy)) {
     return { pythonPath: venvPy, backendCwd, mode: "venv" };
@@ -90,7 +155,7 @@ function resolvePythonAndCwd() {
     const systemPy = process.platform === "win32" ? "python" : "python3";
     return { pythonPath: systemPy, backendCwd, mode: "system" };
   }
-  return { pythonPath: venvPy, backendCwd, mode: "missing" };
+  return { pythonPath: runtimePyPath || venvPy, backendCwd, mode: "missing" };
 }
 
 function startBackend() {
@@ -113,18 +178,17 @@ function startBackend() {
       const wrongPlat = explainWrongPlatformVenv(backendCwd);
       const winHint =
         process.platform === "win32"
-          ? "No Windows, na pasta do projeto, antes de gerar o instalador:\n" +
-            "  cd backend\n" +
-            "  python -m venv .venv\n" +
-            "  .venv\\Scripts\\pip install -r requirements.txt\n\n" +
-            "Depois: npm run electron:dist:win (no PC Windows ou no GitHub Actions)."
+          ? "O instalador deve incluir resources\\backend\\runtime\\python.exe.\n" +
+            "Gere o .exe de novo na raiz do projeto:\n" +
+            "  npm run electron:dist:win\n\n" +
+            "Esse comando baixa Python embeddable portátil e instala as dependências do FastAPI."
           : "No Mac, na pasta do projeto:\n" +
             "  cd backend && python3 -m venv .venv\n" +
             "  ./.venv/bin/pip install -r requirements.txt\n\n" +
             "Depois gere o instalador de novo com o .venv já criado.";
       reject(
         new Error(
-          `Python do venv não encontrado (ENOENT):\n${resolved.pythonPath}\n\n` +
+          `Python embutido não encontrado:\n${resolved.pythonPath}\n\n` +
             winHint +
             wrongPlat,
         ),
@@ -132,11 +196,16 @@ function startBackend() {
       return;
     }
 
-    const { pythonPath } = resolved;
+    const { pythonPath, backendCwd: spawnCwd } = resolved;
     const args = ["-m", "uvicorn", "main:app", "--host", "127.0.0.1", "--port", "8000"];
+    const logPath = getBackendLogPath();
+    if (logPath) {
+      appendBackendLog(`\n--- ${new Date().toISOString()} ---\n`);
+      appendBackendLog(`python: ${pythonPath}\ncwd: ${spawnCwd}\n`);
+    }
 
     backendProcess = spawn(pythonPath, args, {
-      cwd: backendCwd,
+      cwd: spawnCwd,
       stdio: ["ignore", "pipe", "pipe"],
       windowsHide: true,
       env: { ...process.env, PYTHONUNBUFFERED: "1" },
@@ -144,31 +213,50 @@ function startBackend() {
 
     let started = false;
     let settled = false;
-    const maxWait = 20000;
-    const timer = setTimeout(() => {
-      if (!started && !settled) {
-        settled = true;
-        reject(
-          new Error(
-            `O uvicorn não respondeu em ${maxWait / 1000}s (porta 8000).\n` +
-              "Confira se o Python tem fastapi/uvicorn/pandas instalados.",
-          ),
-        );
+    let stderrBuf = "";
+    const maxWait = 30000;
+
+    const markStarted = () => {
+      if (started || settled) return;
+      started = true;
+      settled = true;
+      clearTimeout(timer);
+      resolve();
+    };
+
+    const fail = (message) => {
+      if (started || settled) return;
+      settled = true;
+      clearTimeout(timer);
+      reject(new Error(`${message}${readBackendLogTail()}`));
+    };
+
+    const timer = setTimeout(async () => {
+      if (started || settled) return;
+      if (await waitForBackendHealth(1500)) {
+        markStarted();
+        return;
       }
+      fail(
+        `O uvicorn não respondeu em ${maxWait / 1000}s (porta 8000).\n` +
+          (stderrBuf.trim() ? `\nSaída do Python:\n${stderrBuf.trim().slice(-2000)}` : ""),
+      );
     }, maxWait);
 
-    const onData = (chunk) => {
+    const onData = (chunk, isErr = false) => {
       const output = String(chunk || "");
-      if (!started && (output.includes("Uvicorn running on") || output.includes("Application startup complete"))) {
-        started = true;
-        settled = true;
-        clearTimeout(timer);
-        resolve();
+      appendBackendLog(output);
+      if (isErr) stderrBuf += output;
+      if (
+        !started &&
+        (output.includes("Uvicorn running on") || output.includes("Application startup complete"))
+      ) {
+        markStarted();
       }
     };
 
-    backendProcess.stdout.on("data", onData);
-    backendProcess.stderr.on("data", onData);
+    backendProcess.stdout.on("data", (c) => onData(c, false));
+    backendProcess.stderr.on("data", (c) => onData(c, true));
 
     backendProcess.on("error", (err) => {
       if (started || settled) return;
@@ -185,14 +273,17 @@ function startBackend() {
                 : "\nInstale o Python 3 e: pip install -r backend/requirements.txt"
               : "")
           : "";
-      reject(new Error(`${err.message || err}${extra}`));
+      reject(new Error(`${err.message || err}${extra}${readBackendLogTail()}`));
     });
 
     backendProcess.on("exit", (code) => {
       if (started || settled) return;
       settled = true;
       clearTimeout(timer);
-      reject(new Error(`Backend encerrou antes de ficar pronto. Código: ${code ?? "?"}`));
+      const tail = stderrBuf.trim() ? `\nSaída do Python:\n${stderrBuf.trim().slice(-2000)}` : "";
+      reject(
+        new Error(`Backend encerrou antes de ficar pronto. Código: ${code ?? "?"}${tail}${readBackendLogTail()}`),
+      );
     });
   });
 }

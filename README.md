@@ -15,7 +15,7 @@ Aplicação **ControleExped v1.2** — dashboard de expedição com backend Fast
 |---------|-----------|
 | `npm run dev` | Sobe backend + frontend em paralelo (modo desenvolvimento) |
 | `npm run electron:start` | Faz build do frontend e abre a app Electron |
-| `npm run electron:dist:win` | Gera instalador Windows (.exe) — precisa de `.venv` Windows |
+| `npm run electron:dist:win` | Gera instalador Windows (.exe) — inclui Python embeddable portátil |
 | `npm run electron:dist:win-desktop` | Idem, com saída direta para o Ambiente de Trabalho |
 | `npm run electron:dist:mac` | Gera DMG/ZIP para macOS |
 | `npm run electron:dist:linux` | Gera AppImage para Linux |
@@ -27,9 +27,12 @@ git clone https://github.com/dkzzyn/Arkexpedd.git
 cd Arkexpedd
 npm install
 npm --prefix ./frontend install
-scripts\setup-backend-venv-windows.cmd
 npm run electron:dist:win
 ```
+
+O comando `electron:dist:win` baixa Python 3.12 embeddable, instala FastAPI/uvicorn/pandas e empacota tudo no instalador — **não é preciso Python instalado no PC do cliente**.
+
+Para desenvolvimento local (sem empacotar), opcionalmente: `scripts\setup-backend-venv-windows.cmd`
 
 Instalador final em `electron-dist\ControleExped-v1.2.0-Setup.exe`.
 

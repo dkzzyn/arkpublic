@@ -11,20 +11,20 @@ const { spawnSync } = require("child_process");
 
 const root = path.join(__dirname, "..");
 
-const assertVenv = spawnSync(process.execPath, [path.join(__dirname, "assert-backend-windows-venv.js")], {
-  cwd: root,
-  stdio: "inherit",
-});
-if (assertVenv.status !== 0) {
-  process.exit(assertVenv.status ?? 1);
-}
-
-const preparePack = spawnSync(process.execPath, [path.join(__dirname, "prepare-backend-windows-pack.js")], {
+const preparePack = spawnSync(process.execPath, [path.join(__dirname, "prepare-backend-pack.js")], {
   cwd: root,
   stdio: "inherit",
 });
 if (preparePack.status !== 0) {
   process.exit(preparePack.status ?? 1);
+}
+
+const assertPack = spawnSync(process.execPath, [path.join(__dirname, "assert-backend-pack.js")], {
+  cwd: root,
+  stdio: "inherit",
+});
+if (assertPack.status !== 0) {
+  process.exit(assertPack.status ?? 1);
 }
 
 function resolveDesktopDir() {
