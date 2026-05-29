@@ -19,6 +19,6 @@
 
 !macro customWelcomePage
   !define MUI_WELCOMEPAGE_TITLE "ControleExped v1.2"
-  !define MUI_WELCOMEPAGE_TEXT "Este assistente instala ou atualiza o programa.$\r$\n$\r$\nIMPORTANTE: feche a aplicacao antes de Seguinte (incluindo o icone na bandeja). Se o instalador disser que falhou a desinstalacao da versao antiga, reinicie o PC ou execute como administrador o script scripts/windows-uninstall.cmd (no disco do projeto) e volte a correr este instalador.$\r$\n$\r$\nClique em Seguinte para continuar."
+  !define MUI_WELCOMEPAGE_TEXT "Este assistente instala ou atualiza o ControleExped v1.2 para o seu usuario Windows (nao exige privilegios de administrador).$\r$\n$\r$\nIMPORTANTE: feche a aplicacao antes de Seguinte (incluindo o icone na bandeja). Se existir uma versao antiga instalada para todos os usuarios (Program Files), desinstale-a primeiro pelo Painel de Controle ou use scripts\\windows-uninstall.cmd.$\r$\n$\r$\nClique em Seguinte para continuar."
   !insertmacro MUI_PAGE_WELCOME
 !macroend

@@ -65,6 +65,7 @@
     "win": {
       "icon": "src-tauri/icons/icon.ico",
       "executableName": "ControleExped",
+      "requestedExecutionLevel": "asInvoker",
       "target": [
         {
           "target": "nsis",
@@ -93,7 +94,10 @@
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
-      "allowElevation": true,
+      "allowElevation": false,
+      "perMachine": false,
+      "installerIcon": "src-tauri/icons/icon.ico",
+      "uninstallerIcon": "src-tauri/icons/icon.ico",
       "include": "electron/installer.nsh",
       "uninstallDisplayName": "ControleExped v1.2",
       "shortcutName": "ControleExped v1.2",
