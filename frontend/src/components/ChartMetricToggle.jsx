@@ -11,14 +11,12 @@ function ChartMetricToggle({
   altKey = "itens",
 }) {
   return (
-    <div
-      className={`inline-flex shrink-0 rounded-lg border border-brand-200 bg-brand-50 p-0.5 ${className}`}
-    >
+    <div className={`inline-flex shrink-0 overflow-hidden rounded border border-brand-200 bg-brand-50 text-xs ${className}`}>
       <button
         type="button"
         onClick={() => onChange("valor")}
-        className={`rounded-md px-2 py-1 text-[10px] font-semibold ${
-          value === "valor" ? "text-white shadow-sm" : "text-slate-600 hover:bg-white"
+        className={`px-2.5 py-1 font-medium ${
+          value === "valor" ? "text-white" : "text-brand-900 hover:bg-white"
         }`}
         style={value === "valor" ? { backgroundColor: accentColor } : undefined}
       >
@@ -27,8 +25,8 @@ function ChartMetricToggle({
       <button
         type="button"
         onClick={() => onChange(altKey)}
-        className={`rounded-md px-2 py-1 text-[10px] font-semibold ${
-          value === altKey ? "bg-brand-800 text-white shadow-sm" : "text-brand-800 hover:bg-white"
+        className={`border-l border-brand-200 px-2.5 py-1 font-medium ${
+          value === altKey ? "bg-brand-800 text-white" : "text-brand-900 hover:bg-white"
         }`}
       >
         {altLabel}

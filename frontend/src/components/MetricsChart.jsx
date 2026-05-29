@@ -11,7 +11,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { CHART_BAR_ANIMATION, VALUE_AXIS_DOMAIN, chartMountKey } from "./chartAnimation";
+import { BAR_LABEL_ANIMATION, CHART_BAR_ANIMATION, GrowingBarShape, VALUE_AXIS_DOMAIN, chartMountKey } from "./chartAnimation";
 import { BAR_CHART_MARGIN_TOP, BAR_LABEL_TOP_STYLE } from "./chartLabels";
 
 function formatBRL(value) {
@@ -72,6 +72,7 @@ function MetricsChart({
           name={name}
           fill={barColor}
           radius={[8, 8, 0, 0]}
+          shape={GrowingBarShape}
           {...CHART_BAR_ANIMATION}
           onClick={(entry) => {
             if (selectable && onSelect && entry?.MES_ANO) onSelect(entry.MES_ANO);
@@ -82,6 +83,7 @@ function MetricsChart({
             position="top"
             formatter={labelFormatter}
             style={BAR_LABEL_TOP_STYLE}
+            {...BAR_LABEL_ANIMATION}
           />
           {selectable &&
             data.map((entry) => (

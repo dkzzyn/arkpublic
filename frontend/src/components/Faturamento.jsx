@@ -16,6 +16,8 @@ import {
   CHART_BAR_ANIMATION,
   CHART_BAR_ANIMATION_DELAYED,
   CHART_LINE_ANIMATION,
+  BAR_LABEL_ANIMATION,
+  GrowingBarShape,
   VALUE_AXIS_DOMAIN,
   chartMountKey,
 } from "./chartAnimation";
@@ -327,40 +329,38 @@ function Faturamento({ api }) {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-hidden">
-      <div className="shrink-0 grid grid-cols-1 gap-2 lg:grid-cols-3">
-        <div className="rounded-xl border border-slate-200 bg-slate-50 p-2">
-          <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-slate-500">Relatório</p>
-          <div className="inline-flex rounded-lg border border-slate-300 bg-white p-1 shadow-sm">
+      <div className="mb-3 flex shrink-0 flex-wrap items-end gap-x-5 gap-y-3 border-b border-brand-200 pb-3">
+        <div>
+          <p className="mb-1 text-xs text-brand-800">Relatório</p>
+          <div className="inline-flex overflow-hidden rounded border border-brand-200 bg-white text-xs">
             <button
               type="button"
               onClick={() => setMode("mensal")}
-              className={`rounded-md px-2.5 py-1 text-xs font-medium ${mode === "mensal" ? "bg-brand-600 text-white" : "text-brand-900 hover:bg-brand-50"}`}
+              className={`px-3 py-1.5 font-medium ${mode === "mensal" ? "bg-brand-600 text-white" : "text-brand-900 hover:bg-brand-50"}`}
             >
               Mensal
             </button>
             <button
               type="button"
               onClick={() => setMode("anual")}
-              className={`rounded-md px-2.5 py-1 text-xs font-medium ${mode === "anual" ? "bg-brand-600 text-white" : "text-brand-900 hover:bg-brand-50"}`}
+              className={`border-l border-brand-200 px-3 py-1.5 font-medium ${mode === "anual" ? "bg-brand-600 text-white" : "text-brand-900 hover:bg-brand-50"}`}
             >
               Anual
             </button>
           </div>
         </div>
 
-        <div className="rounded-xl border border-slate-200 bg-slate-50 p-2">
-          <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-slate-500">Local</p>
-          <div className="inline-flex flex-wrap gap-1 rounded-lg border border-slate-300 bg-white p-1 shadow-sm">
-            {LOCAL_OPTIONS.map((opt) => (
+        <div>
+          <p className="mb-1 text-xs text-brand-800">Local</p>
+          <div className="inline-flex flex-wrap overflow-hidden rounded border border-brand-200 bg-white text-xs">
+            {LOCAL_OPTIONS.map((opt, idx) => (
               <button
                 key={opt.value}
                 type="button"
                 onClick={() => setLocalFilter(opt.value)}
-                className={`rounded-md px-2 py-1 text-xs font-medium ${
-                  localFilter === opt.value
-                    ? "bg-brand-600 text-white"
-                    : "text-brand-900 hover:bg-brand-50"
-                }`}
+                className={`px-3 py-1.5 font-medium ${
+                  idx > 0 ? "border-l border-brand-200" : ""
+                } ${localFilter === opt.value ? "bg-brand-600 text-white" : "text-brand-900 hover:bg-brand-50"}`}
               >
                 {opt.label}
               </button>
@@ -368,15 +368,13 @@ function Faturamento({ api }) {
           </div>
         </div>
 
-        <div className="rounded-xl border border-slate-200 bg-slate-50 p-2">
-          <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
-            {mode === "mensal" ? "Mês" : "Ano"}
-          </p>
+        <div className="min-w-[140px]">
+          <p className="mb-1 text-xs text-brand-800">{mode === "mensal" ? "Mês de referência" : "Ano"}</p>
           {mode === "mensal" ? (
             <select
               value={selectedMonth}
               onChange={(e) => setSelectedMonth(e.target.value)}
-              className="w-full rounded-md border border-slate-300 bg-white px-2 py-1.5 text-xs text-slate-800"
+              className="w-full rounded border border-brand-200 bg-white px-2 py-1.5 text-xs text-brand-950"
             >
               {monthOptions.map((m) => (
                 <option key={m} value={m}>
@@ -388,7 +386,7 @@ function Faturamento({ api }) {
             <select
               value={selectedYear}
               onChange={(e) => setSelectedYear(e.target.value)}
-              className="w-full rounded-md border border-slate-300 bg-white px-2 py-1.5 text-xs text-slate-800"
+              className="w-full rounded border border-brand-200 bg-white px-2 py-1.5 text-xs text-brand-950"
             >
               {yearOptions.map((y) => (
                 <option key={y} value={String(y)}>
@@ -401,19 +399,19 @@ function Faturamento({ api }) {
       </div>
 
       {error && (
-        <div className="shrink-0 rounded-lg border border-red-300 bg-red-50 px-2 py-1.5 text-xs text-red-700">
+        <div className="shrink-0 rounded border border-red-300 bg-red-50 px-2 py-1.5 text-xs text-red-700">
           {error}
         </div>
       )}
 
       {noData && !isLoading && !error ? (
-        <div className="flex min-h-0 flex-1 items-center justify-center rounded-xl border border-dashed border-brand-300 bg-brand-50/60 p-4">
+        <div className="flex min-h-0 flex-1 items-center justify-center border border-dashed border-brand-300 bg-brand-50/60 p-4">
           <div className="max-w-md text-center">
             <p className="text-sm font-semibold text-brand-900">Sem dados de faturamento.</p>
-            <p className="mt-1 text-xs text-brand-800">
-              Vá à secção <strong>Dados</strong> e carregue a planilha de faturamento (.xlsx ou .csv) com as colunas{" "}
-              <code className="text-[11px]">FILA_ORDEM</code>, <code className="text-[11px]">LOCAL</code>,{" "}
-              <code className="text-[11px]">DATA_EMISSAO_NF</code> e <code className="text-[11px]">R$PROJETO</code>.
+            <p className="mt-1 text-sm text-brand-800">
+              Vá à seção <strong>Dados</strong> e carregue a planilha de faturamento (.xlsx ou .csv) com as colunas{" "}
+              <code className="text-xs">FILA_ORDEM</code>, <code className="text-xs">LOCAL</code>,{" "}
+              <code className="text-xs">DATA_EMISSAO_NF</code> e <code className="text-xs">R$PROJETO</code>.
             </p>
           </div>
         </div>
@@ -458,9 +456,9 @@ function Faturamento({ api }) {
           </div>
 
           <div className="grid min-h-0 flex-1 gap-2 [grid-template-rows:minmax(0,1fr)_minmax(0,1fr)]">
-            <div className="flex min-h-0 min-w-0 flex-col rounded-xl border border-slate-200 bg-white p-2 shadow-sm">
-              <div className="mb-1 flex shrink-0 items-center justify-between">
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+            <div className="flex min-h-0 min-w-0 flex-col border border-brand-200 bg-white p-3">
+              <div className="mb-2 flex shrink-0 items-center justify-between">
+                <p className="text-sm font-medium text-slate-700">
                   {mode === "mensal"
                     ? `Valor faturado por mês (${MENSAL_YEAR})`
                     : `Valor faturado por mês do ano (${selectedYear || "—"})`}
@@ -482,6 +480,7 @@ function Faturamento({ api }) {
                       dataKey="VALOR_TOTAL"
                       name="Valor"
                       radius={[8, 8, 0, 0]}
+                      shape={GrowingBarShape}
                       {...CHART_BAR_ANIMATION}
                       onClick={(entry) => {
                         if (mode === "mensal" && entry?.MES_ANO) setSelectedMonth(entry.MES_ANO);
@@ -492,6 +491,7 @@ function Faturamento({ api }) {
                         position="top"
                         formatter={formatBRLCompact}
                         style={BAR_LABEL_TOP_STYLE}
+                        {...BAR_LABEL_ANIMATION}
                       />
                       {chartData.map((entry) => {
                         const isSelected =
@@ -511,11 +511,9 @@ function Faturamento({ api }) {
             </div>
 
             {mode === "mensal" ? (
-              <div className="flex min-h-0 min-w-0 flex-col rounded-xl border border-slate-200 bg-white p-2 shadow-sm">
-                <div className="mb-1 flex shrink-0 flex-wrap items-center justify-between gap-2">
-                  <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-                    Evolução diária
-                  </p>
+              <div className="flex min-h-0 min-w-0 flex-col border border-brand-200 bg-white p-3">
+                <div className="mb-2 flex shrink-0 flex-wrap items-center justify-between gap-2">
+                  <p className="text-sm font-medium text-slate-700">Evolução diária</p>
                   <div className="flex flex-wrap items-center gap-2">
                     <ChartMetricToggle
                       value={dailyLineMetric}
@@ -574,10 +572,8 @@ function Faturamento({ api }) {
               </div>
             ) : (
               <div className="grid min-h-0 min-w-0 grid-cols-1 gap-2 lg:grid-cols-2">
-                <div className="flex min-h-0 min-w-0 flex-col rounded-xl border border-slate-200 bg-white p-2 shadow-sm">
-                  <p className="mb-1 shrink-0 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-                    NF geradas × aguardando faturamento (total)
-                  </p>
+                <div className="flex min-h-0 min-w-0 flex-col border border-brand-200 bg-white p-3">
+                  <p className="mb-2 shrink-0 text-sm font-medium text-slate-700">NF geradas × aguardando faturamento</p>
                   <div className="min-h-0 flex-1">
                     <ResponsiveContainer width="100%" height="100%">
                       <BarChart
@@ -593,6 +589,7 @@ function Faturamento({ api }) {
                           dataKey="QTD"
                           name="Quantidade"
                           radius={[8, 8, 0, 0]}
+                          shape={GrowingBarShape}
                           {...CHART_BAR_ANIMATION}
                         >
                           <LabelList
@@ -600,6 +597,7 @@ function Faturamento({ api }) {
                             position="top"
                             formatter={formatIntCompact}
                             style={BAR_LABEL_TOP_STYLE}
+                            {...BAR_LABEL_ANIMATION}
                           />
                           {statusComparativo.map((entry) => (
                             <Cell
@@ -613,10 +611,8 @@ function Faturamento({ api }) {
                   </div>
                 </div>
 
-                <div className="flex min-h-0 min-w-0 flex-col rounded-xl border border-slate-200 bg-white p-2 shadow-sm">
-                  <p className="mb-1 shrink-0 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-                    Comparativo por local (total)
-                  </p>
+                <div className="flex min-h-0 min-w-0 flex-col border border-brand-200 bg-white p-3">
+                  <p className="mb-2 shrink-0 text-sm font-medium text-slate-700">Comparativo por local</p>
                   <div className="min-h-0 flex-1">
                     <ResponsiveContainer width="100%" height="100%">
                       <BarChart
@@ -633,6 +629,7 @@ function Faturamento({ api }) {
                           name="NF Gerada"
                           fill={COLOR_GERADA}
                           radius={[8, 8, 0, 0]}
+                          shape={GrowingBarShape}
                           {...CHART_BAR_ANIMATION}
                         >
                           <LabelList
@@ -640,6 +637,7 @@ function Faturamento({ api }) {
                             position="top"
                             formatter={formatIntCompact}
                             style={BAR_LABEL_TOP_STYLE}
+                            {...BAR_LABEL_ANIMATION}
                           />
                         </Bar>
                         <Bar
@@ -647,6 +645,7 @@ function Faturamento({ api }) {
                           name="Aguardando faturamento"
                           fill={COLOR_AGUARDANDO}
                           radius={[8, 8, 0, 0]}
+                          shape={(props) => <GrowingBarShape {...props} staggerOffset={120} />}
                           {...CHART_BAR_ANIMATION_DELAYED}
                         >
                           <LabelList
@@ -654,6 +653,7 @@ function Faturamento({ api }) {
                             position="top"
                             formatter={formatIntCompact}
                             style={BAR_LABEL_TOP_STYLE}
+                            {...BAR_LABEL_ANIMATION}
                           />
                         </Bar>
                       </BarChart>

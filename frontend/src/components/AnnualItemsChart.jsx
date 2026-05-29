@@ -19,7 +19,7 @@ function formatIntCompact(value) {
 }
 
 function AnnualItemsChart({ data, accentColor }) {
-  const lineColor = accentColor || "#475569";
+  const lineColor = accentColor || "#b91c1c";
   const showLabels = (data || []).length <= 12;
 
   return (

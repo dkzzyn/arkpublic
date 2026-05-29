@@ -1,4 +1,4 @@
-/** Paleta ControleExped — tons de vermelho */
+/** Paleta ControleExped — tons de vermelho Arklok */
 export const BRAND = {
   50: "#fef2f2",
   100: "#fee2e2",

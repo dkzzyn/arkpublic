@@ -19,47 +19,37 @@ function KpiCard({
   type = "number",
   primary = false,
   trend = null,
-  accentColor = "#dc2626",
+  accentColor = "#b91c1c",
   compact = false,
 }) {
   const trendColor = trend == null ? "text-slate-500" : trend >= 0 ? "text-brand-600" : "text-brand-900";
   const trendLabel =
     trend == null
       ? "Sem base comparativa"
-      : `${trend >= 0 ? "↑" : "↓"} ${Math.abs(trend).toFixed(1)}% vs mes anterior`;
+      : `${trend >= 0 ? "+" : ""}${trend.toFixed(1)}% vs. mês anterior`;
 
   return (
     <div
-      className={`h-full rounded-2xl border border-slate-200 shadow-sm transition-all duration-300 hover:shadow-md ${
-        primary ? "bg-brand-50" : "bg-white"
+      className={`h-full border border-brand-200 bg-white ${
+        primary ? "border-t-[3px] bg-brand-50/50" : "border-t border-t-brand-100"
       }`}
-      style={{
-        padding: compact ? "7px 9px" : "14px",
-        borderLeftWidth: "2px",
-        borderLeftColor: accentColor,
-      }}
+      style={primary ? { borderTopColor: accentColor } : undefined}
     >
-      <p
-        className={`mb-1 ${
-          primary
-            ? compact
-              ? "text-[11px] font-semibold text-slate-700"
-              : "text-base font-semibold text-slate-700"
-            : "text-[10px] font-medium text-slate-500"
-        }`}
-      >
-        {title}
-      </p>
-      <h3
-        className={`${
-          primary ? (compact ? "text-lg xl:text-xl" : "text-3xl xl:text-4xl") : "text-sm xl:text-base"
-        } font-bold leading-tight text-slate-900`}
-      >
-        {formatValue(value, type)}
-      </h3>
-      {trend != null && (
-        <p className={`mt-0.5 text-[10px] font-semibold ${trendColor}`}>{trendLabel}</p>
-      )}
+      <div className={compact ? "px-3 py-2.5" : "px-4 py-3"}>
+        <p className={`mb-0.5 ${primary ? "text-sm font-medium text-slate-700" : "text-xs text-slate-500"}`}>
+          {title}
+        </p>
+        <p
+          className={`font-semibold tabular-nums text-slate-900 ${
+            primary ? (compact ? "text-xl" : "text-2xl") : compact ? "text-base" : "text-lg"
+          }`}
+        >
+          {formatValue(value, type)}
+        </p>
+        {trend != null && (
+          <p className={`mt-1 text-xs ${trendColor}`}>{trendLabel}</p>
+        )}
+      </div>
     </div>
   );
 }

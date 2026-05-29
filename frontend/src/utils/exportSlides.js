@@ -737,6 +737,28 @@ var chartTick='#9b0c18';
 function tickColor(){return document.body.classList.contains('theme-dark')?'#fca5a5':'#b91c1c';}
 function gridColor(){return document.body.classList.contains('theme-dark')?'rgba(255,255,255,.06)':'rgba(185,28,28,.08)';}
 function accentColor(){return'#E63946';}
+function barGrowAnimations(stagger,duration){
+  stagger=stagger==null?70:stagger;duration=duration==null?900:duration;
+  return{
+    animation:{duration:duration,easing:'easeOutQuart'},
+    animations:{
+      y:{
+        type:'number',easing:'easeOutQuart',duration:duration,
+        from:function(ctx){
+          if(ctx.type!=='data')return undefined;
+          var scaleId=ctx.dataset.yAxisID||'y';
+          var scale=ctx.chart.scales[scaleId];
+          return scale?scale.getPixelForValue(0):undefined;
+        },
+        delay:function(ctx){return ctx.type==='data'?ctx.dataIndex*stagger:0;}
+      },
+      height:{
+        type:'number',easing:'easeOutQuart',duration:duration,from:0,
+        delay:function(ctx){return ctx.type==='data'?ctx.dataIndex*stagger:0;}
+      }
+    }
+  };
+}
 function baseOpts(){
   var tc=tickColor();
   return{
@@ -824,7 +846,7 @@ function initChartsInSlide(slide){
   Chart.defaults.font.family="'Inter',sans-serif";
   Chart.defaults.color=tickColor();
   if(slide.querySelector('#chartBar')){
-    makeChart('chartBar',{type:'bar',data:{labels:D.barLabels,datasets:[{label:'Mil R$',data:D.barValues,backgroundColor:R,borderRadius:10}]},options:withDataLabels(Object.assign({},o,{plugins:{legend:{display:false}}}),'bar')});
+    makeChart('chartBar',{type:'bar',data:{labels:D.barLabels,datasets:[{label:'Mil R$',data:D.barValues,backgroundColor:R,borderRadius:10}]},options:withDataLabels(Object.assign({},o,barGrowAnimations(),{plugins:{legend:{display:false}}}),'bar')});
   }
   if(slide.querySelector('#chartLine')){
     makeChart('chartLine',{type:'line',data:{labels:D.lineLabels,datasets:[{label:'Mil R$',data:D.lineValues,borderColor:accentColor(),backgroundColor:'rgba(230,57,70,.08)',fill:true,tension:.4,borderWidth:2,pointRadius:4,pointBackgroundColor:accentColor()}]},options:withDataLabels(Object.assign({},o,{plugins:{legend:{display:false}}}),'line')});
@@ -836,7 +858,7 @@ function initChartsInSlide(slide){
     makeChart('chartDonut',{type:'doughnut',data:{labels:['NF Gerada','Aguardando'],datasets:[{data:D.donutData,backgroundColor:[R[0],R[5]],borderWidth:0}]},options:withDataLabels(Object.assign({},pieO,{cutout:'62%'}),'doughnut')});
   }
   if(slide.querySelector('#chartCombo')){
-    var co=JSON.parse(JSON.stringify(o));
+    var co=Object.assign({},o,barGrowAnimations());
     co.plugins=co.plugins||{};
     co.plugins.legend={display:true,position:'bottom',labels:{color:tickColor(),font:{size:12,weight:'600'}}};
     co.scales.y1={position:'right',beginAtZero:true,grid:{drawOnChartArea:false},ticks:{display:false}};

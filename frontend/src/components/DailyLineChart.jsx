@@ -51,7 +51,7 @@ function DailyLineChart({ data, color = "#dc2626", metric = "valor", domainFromZ
     isValor ? formatBRL(value) : Number(value || 0).toLocaleString("pt-BR");
 
   return (
-    <ResponsiveContainer width="100%" height="100%">
+    <ResponsiveContainer width="100%" height="100%" minHeight={160}>
       <LineChart
         key={chartMountKey("daily-line", metric, data?.length)}
         data={data}

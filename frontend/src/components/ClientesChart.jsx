@@ -9,7 +9,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { CHART_BAR_ANIMATION, VALUE_AXIS_DOMAIN, chartMountKey } from "./chartAnimation";
+import { BAR_LABEL_ANIMATION, CHART_BAR_ANIMATION, GrowingBarShape, VALUE_AXIS_DOMAIN, chartMountKey } from "./chartAnimation";
 import { BAR_LABEL_TOP_STYLE } from "./chartLabels";
 import { DEFAULT_ACCENT } from "../theme/colors";
 
@@ -62,7 +62,7 @@ function ClientesChart({ ranking, color = DEFAULT_ACCENT, selectedRazao = "", on
 
   if (!chartData.length) {
     return (
-      <div className="flex h-full min-h-0 items-center justify-center rounded-xl border border-dashed border-slate-200 bg-slate-50 px-2 text-center text-xs text-slate-500">
+      <div className="flex h-full min-h-0 items-center justify-center rounded border border-dashed border-brand-200 bg-brand-50 px-2 text-center text-xs text-brand-800">
         Nenhum cliente no escopo selecionado.
       </div>
     );
@@ -101,6 +101,7 @@ function ClientesChart({ ranking, color = DEFAULT_ACCENT, selectedRazao = "", on
               dataKey="VALOR_TOTAL"
               radius={[0, 4, 4, 0]}
               maxBarSize={22}
+              shape={(props) => <GrowingBarShape {...props} horizontal />}
               {...CHART_BAR_ANIMATION}
             >
               <LabelList
@@ -108,6 +109,7 @@ function ClientesChart({ ranking, color = DEFAULT_ACCENT, selectedRazao = "", on
                 position="right"
                 formatter={formatBRLCompact}
                 style={{ ...BAR_LABEL_TOP_STYLE, fontSize: 10 }}
+                {...BAR_LABEL_ANIMATION}
               />
               {chartData.map((entry, index) => {
                 const isSel = selectedRazao && entry[RS_KEY] === selectedRazao;

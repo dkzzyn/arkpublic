@@ -1117,6 +1117,31 @@
           grid: { color: "rgba(185, 28, 28, 0.08)" },
         };
 
+        const barGrowAnimations = (stagger = 70, duration = 900) => ({
+          animation: { duration, easing: "easeOutQuart" },
+          animations: {
+            y: {
+              type: "number",
+              easing: "easeOutQuart",
+              duration,
+              from: (ctx) => {
+                if (ctx.type !== "data") return undefined;
+                const scaleId = ctx.dataset.yAxisID || "y";
+                const scale = ctx.chart.scales[scaleId];
+                return scale ? scale.getPixelForValue(0) : undefined;
+              },
+              delay: (ctx) => (ctx.type === "data" ? ctx.dataIndex * stagger : 0),
+            },
+            height: {
+              type: "number",
+              easing: "easeOutQuart",
+              duration,
+              from: 0,
+              delay: (ctx) => (ctx.type === "data" ? ctx.dataIndex * stagger : 0),
+            },
+          },
+        });
+
         const pieLabels = {
           display: true,
           anchor: "center",
@@ -1146,6 +1171,7 @@
               y: hideYTicks,
               x: { grid: { display: false }, ticks: { color: tc } },
             },
+            ...barGrowAnimations(),
           },
         });
 
@@ -1260,6 +1286,7 @@
                 grid: { drawOnChartArea: false },
               },
             },
+            ...barGrowAnimations(),
           },
         });
       }
