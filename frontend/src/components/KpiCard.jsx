@@ -1,16 +1,10 @@
 import React from "react";
+import { formatBRL, formatInt, formatPct } from "../utils/formatters";
 
 function formatValue(value, type) {
-  const safeValue = Number(value || 0);
-  if (type === "currency") {
-    return safeValue.toLocaleString("pt-BR", {
-      style: "currency",
-      currency: "BRL",
-      minimumFractionDigits: 2,
-    });
-  }
-  if (type === "percent") return `${safeValue.toFixed(1)}%`;
-  return safeValue.toLocaleString("pt-BR");
+  if (type === "currency") return formatBRL(value);
+  if (type === "percent") return formatPct(value);
+  return formatInt(value);
 }
 
 function KpiCard({

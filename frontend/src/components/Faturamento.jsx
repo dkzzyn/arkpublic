@@ -25,6 +25,7 @@ import { BAR_CHART_MARGIN_TOP, BAR_LABEL_TOP_STYLE } from "./chartLabels";
 import KpiCard from "./KpiCard";
 import ChartMetricToggle from "./ChartMetricToggle";
 import { BRAND, CHART_ITENS, FATURAMENTO_COLORS } from "../theme/colors";
+import { formatBRL, formatBRLCompact, formatIntCompact } from "../utils/formatters";
 
 const LOCAL_OPTIONS = [
   { value: "todos", label: "Todos" },
@@ -70,20 +71,6 @@ const emptyPayload = {
   por_local: [],
 };
 
-function formatBRLCompact(value) {
-  const n = Number(value || 0);
-  if (n >= 1_000_000) return `R$ ${(n / 1_000_000).toFixed(1)} mi`;
-  if (n >= 1_000) return `R$ ${(n / 1_000).toFixed(1)} mil`;
-  return `R$ ${n.toFixed(0)}`;
-}
-
-function formatIntCompact(value) {
-  const n = Number(value || 0);
-  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)} mi`;
-  if (n >= 1_000) return `${(n / 1_000).toFixed(1)} mil`;
-  return n.toLocaleString("pt-BR");
-}
-
 function StatusTooltip({ active, payload, label }) {
   if (!active || !payload?.length) return null;
   return (
@@ -112,13 +99,7 @@ function MensalTooltip({ active, payload, label }) {
         </p>
       ) : (
         <>
-          <p className="text-slate-700">
-            {Number(p.VALOR_TOTAL || 0).toLocaleString("pt-BR", {
-              style: "currency",
-              currency: "BRL",
-              minimumFractionDigits: 2,
-            })}
-          </p>
+          <p className="text-slate-700">{formatBRL(p.VALOR_TOTAL || entry?.value)}</p>
           <p className="text-slate-500">{Number(p.QTD_GERADAS || 0).toLocaleString("pt-BR")} NF</p>
         </>
       )}
@@ -282,7 +263,7 @@ function Faturamento({ api }) {
       const yearNum = Number(selectedYear);
       source = yearNum ? (data.mensal || []).filter((row) => Number(row.ANO) === yearNum) : [];
     }
-    return source.reduce(
+    const totals = source.reduce(
       (acc, row) => {
         acc.valor += Number(row.VALOR_TOTAL || 0);
         acc.geradas += Number(row.QTD_GERADAS || 0);
@@ -290,6 +271,8 @@ function Faturamento({ api }) {
       },
       { valor: 0, geradas: 0 },
     );
+    totals.valor = Math.round(totals.valor * 100) / 100;
+    return totals;
   }, [data.mensal, mode, selectedMonth, selectedYear]);
 
   const totais = data.totais || emptyPayload.totais;
